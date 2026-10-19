@@ -13,13 +13,13 @@ const fixture = (nombre: string, cwd: string): any[] => JSON.parse(readFileSync(
 // una query() que solo suelta los mensajes que la prueba le mete, y apunta con qué opciones se la llamó
 class QueryFalsa {
   private cola: any[] = []; private esperas: ((r: IteratorResult<any>) => void)[] = []; private fin = false;
-  modos: string[] = [];
+  modos: string[] = []; fallaModo = false;
   constructor(public options: Options) {}
   meter(m: any) { const w = this.esperas.shift(); if (w) w({ value: m, done: false }); else this.cola.push(m); }
   terminar() { this.fin = true; for (const w of this.esperas.splice(0)) w({ value: undefined, done: true }); }
   [Symbol.asyncIterator]() { return { next: () => this.cola.length ? Promise.resolve({ value: this.cola.shift(), done: false }) : this.fin ? Promise.resolve({ value: undefined, done: true }) : new Promise<IteratorResult<any>>(r => this.esperas.push(r)) }; }
   async supportedCommands() { return []; }
-  async setPermissionMode(m: string) { this.modos.push(m); }
+  async setPermissionMode(m: string) { this.modos.push(m); if (this.fallaModo) throw new Error('modo no admitido'); }
   async interrupt() { return {}; }
   close() { this.terminar(); }
 }
@@ -143,6 +143,17 @@ describe('opciones de query()', () => {
     await nuevas([dir]).empezar('hab-1', 'sala-1', dir, '', {});   // confiada en el juego: se lanza sin preguntar
     expect(llamadas).toHaveLength(4); expect(fuentes()).toEqual(['user', 'project', 'local']);
   });
+  it('si el SDK no acepta volver al modo pedido, la sesión se para y lo dice', async () => {
+    const s = nuevas(); const r = await s.empezar('hab-1', 'sala-1', dir, 'Hola', { permisos: 'default' });
+    llamadas[0].fallaModo = true;
+    llamadas[0].meter(fixture('init-modo-auto.json', dir)[0]);
+    await vi.waitFor(() => expect(s.get(r.id)!.r.estado).toBe('cerrada'));
+    expect(llamadas[0].modos).toEqual(['default']);
+    expect(s.cuaderno(r.id).some(e => e.tipo === 'sistema')).toBe(false);
+    expect(s.cuaderno(r.id).find(e => e.tipo === 'error')?.texto).toMatch(/auto.*default/s);
+    s.cerrarTodas();
+  });
+
   it('si el init informa otro modo (auto), se mantiene el pedido: se le devuelve al SDK, se avisa y se reanuda con él', async () => {
     const s = nuevas(); const r = await s.empezar('hab-1', 'sala-1', dir, 'Hola', { permisos: 'default' });
     expect(llamadas[0].options.permissionMode).toBe('default');

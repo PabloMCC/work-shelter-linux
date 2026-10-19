@@ -384,8 +384,11 @@ export class Sesiones extends EventEmitter {
         // por unos ajustes), se le devuelve al pedido y se avisa; nunca se adopta, porque se reutilizaría al reanudar
         if (m.permissionMode && m.permissionMode !== (r.modoPermisos || 'default')) {
           const pedido = r.modoPermisos || 'default';
-          x.q?.setPermissionMode(pedido as any).catch(() => {});
-          this.anadir(x, this.entrada('sistema', `Claude Code arrancó en modo de permisos «${m.permissionMode}» y no en el pedido, «${pedido}». Se ha vuelto a «${pedido}».`));
+          const informado = m.permissionMode, q = x.q;
+          // si no se puede volver al modo pedido, la sesión no sigue en un modo que nadie ha elegido: se para y se dice
+          q?.setPermissionMode(pedido as any).then(
+            () => this.anadir(x, this.entrada('sistema', `Claude Code arrancó en modo de permisos «${informado}» y no en el pedido, «${pedido}». Se ha vuelto a «${pedido}».`)),
+            (e: Error) => { this.anadir(x, this.entrada('error', `Claude Code arrancó en modo de permisos «${informado}» y no se ha podido volver al pedido, «${pedido}» (${e.message}): he parado la sesión.`)); x.cerrando = true; q.close(); });
         }
         if (m.cwd && /\/\.claude\/worktrees\//.test(m.cwd)) r.worktree = m.cwd;
         if (r.estado === 'arrancando') r.estado = 'trabajando';
