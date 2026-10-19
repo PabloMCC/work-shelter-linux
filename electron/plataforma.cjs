@@ -19,11 +19,11 @@ function shellDeUsuario(env = process.env, info = null, plataforma = process.pla
 }
 
 // lo que se añade al PATH heredado: ~/.local/bin (Claude Code), en macOS las de Homebrew, y el Node portátil que descarga
-// ./shelter en .runtime/ (en Linux, solo el de Linux)
+// ./shelter en .runtime/ (solo el de este sistema: el de macOS en macOS y el de Linux en Linux)
 function rutasExtra(plataforma = process.platform, casa = os.homedir(), repo, leer = fs.readdirSync) {
   const extra = [path.join(casa, '.local/bin')];
   if (plataforma === 'darwin') extra.push('/opt/homebrew/bin', '/usr/local/bin');
-  const propio = plataforma === 'darwin' ? n => n.startsWith('node-') : n => /^node-.*-linux-/.test(n);
+  const propio = n => new RegExp(`^node-.*-${plataforma === 'darwin' ? 'darwin' : 'linux'}-`).test(n);
   if (repo) { const rt = path.join(repo, '.runtime'); try { extra.push(...leer(rt).filter(propio).map(n => path.join(rt, n, 'bin'))); } catch {} }
   return extra;
 }
@@ -32,6 +32,28 @@ function rutasExtra(plataforma = process.platform, casa = os.homedir(), repo, le
 function atajoWebview(plataforma = process.platform, k = {}) {
   return plataforma === 'darwin' ? !!k.meta && !k.control : !!k.control && !k.meta;
 }
+
+// las teclas que el refugio coge con el foco dentro de un navegador, y su clase: las del refugio (la música, el
+// buscador, minimizar y la barra) van con Ctrl+Mayús en Linux, porque Ctrl+J/K/M/B son de los editores de las webs; las
+// de navegador (cerrar, recargar, atrás y adelante, zoom), con Ctrl. En macOS, todas con Command. La misma lista que la
+// interfaz (web/src/ui/teclas.ts; test/electron-plataforma.test.ts comprueba que coinciden)
+const ATAJOS = Object.freeze({
+  KeyJ: 'refugio', KeyK: 'refugio', KeyM: 'refugio', KeyB: 'refugio',
+  KeyW: 'navegador', KeyR: 'navegador', BracketLeft: 'navegador', BracketRight: 'navegador', Equal: 'navegador', Minus: 'navegador', Digit0: 'navegador',
+});
+// la tecla (su `code`) si la pulsación es uno de esos atajos; si no, null y va a la página. Con Mayús de más no valen
+// atrás y adelante ni, en macOS, la música y el buscador (⌘⇧J y ⌘⇧K, a la página, como siempre)
+function atajoNavegador(plataforma = process.platform, k = {}) {
+  const clase = ATAJOS[k.code];
+  if (!clase || k.alt || !atajoWebview(plataforma, k)) return null;
+  const mac = plataforma === 'darwin';
+  if (!mac && clase === 'refugio' && !k.shift) return null;
+  if (k.shift && (k.code === 'BracketLeft' || k.code === 'BracketRight' || (mac && (k.code === 'KeyJ' || k.code === 'KeyK')))) return null;
+  return k.code;
+}
+// lo que se reenvía a la interfaz (window.__atajoNavegador): los modificadores tal cual, para que su comprobación
+// (teclas.ts) valga en los dos sistemas
+const teclasReenviadas = k => ({ code: k.code, key: k.key, shiftKey: !!k.shift, ctrlKey: !!k.control, metaKey: !!k.meta });
 
 // salir a la superficie: ⇧⌥⌘Esc en macOS, Mayús+Alt+Ctrl+Esc en Linux
 const PANICO = 'Shift+Alt+CommandOrControl+Escape';
@@ -43,4 +65,4 @@ function esEnlaceExterno(u) {
   try { return EXTERNOS.includes(new URL(u).protocol); } catch { return false; }
 }
 
-module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, PANICO, esEnlaceExterno };
+module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, teclasReenviadas, PANICO, esEnlaceExterno };

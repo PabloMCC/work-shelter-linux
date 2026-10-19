@@ -19,6 +19,7 @@ import { IDIOMAS_DICTADO, idiomaDictado, ponerIdiomaDictado } from './entrada';
 import { sacarASuperficie } from './superficie';
 import { abrirBuscador } from './Buscador';
 import { terminales as terminalesAbiertas } from './Terminales';
+import { MAC, CMD, etiquetaAtajo } from './teclas';
 
 export const abrirPanel = (panel: Panel, panelDatos: any = null) => { juego.set({ panel, panelDatos }); };
 // lo que se abre desde el menú de Esc vuelve a él al salir (Esc o ×); abierto con su tecla, se cierra sin más
@@ -271,7 +272,7 @@ const CONTROLES: [string, string][] = [
   ['Q', 'ir directo al primer habitante que te espera'], ['T', 'terminal real de la sala (shell sobre PTY)'],
   ['R', 'cuaderno: transcripción completa de una conversación'], ['I', 'inventario, guía de campo y tienda'],
   ['N / C / L', 'ir a comunicaciones, planificación o logística'], ['G', 'cliente de git (en una sala de repo, con su repo)'], ['P', 'Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante)'],
-  ['⌘K', 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
+  [etiquetaAtajo('KeyK'), 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
   ['Esc', 'cierra lo abierto; en el refugio, el menú del juego: opciones, atajos, reiniciar, salir a la superficie y salir'],
 ];
 const CONTROLES_DIALOGO: [string, string][] = [
@@ -285,11 +286,11 @@ const CONTROLES_DIALOGO: [string, string][] = [
 ];
 const CONTROLES_VENTANA: [string, string][] = [
   ['⌘T', 'pestaña nueva: otro trabajo con el mismo habitante, u otro shell en la terminal'],
-  ['⌘W / ⌘⇧W', 'cerrar la pestaña / la ventana; con algo en marcha, pregunta antes'], ['⌘1…⌘9, ⌃Tab', 'cambiar de pestaña'],
-  ['⌘↓ · ⌘M · _', 'minimizar a la barra de abajo a la izquierda; todo sigue y al volver se ve igual'],
+  [MAC ? '⌘W / ⌘⇧W' : etiquetaAtajo('KeyW', { clase: 'refugio' }), 'cerrar la pestaña / la ventana; con algo en marcha, pregunta antes'], ['⌘1…⌘9, ⌃Tab', 'cambiar de pestaña'],
+  [`${CMD}↓ · ${etiquetaAtajo('KeyM')} · _`, 'minimizar a la barra de abajo a la izquierda; todo sigue y al volver se ve igual'],
   ['⌘↑ · ▢', 'pantalla completa (⌘↓ la restaura; también doble clic en la cabecera)'],
-  ['⌘B (B en el refugio)', 'barra de ventanas con el teclado: ←→ elegir, ↑↓ fila, Intro abrir, X cerrar, M minimizar, Esc salir'],
-  ['⌘J (J en el refugio)', 'la música: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina, la despliega en mano: Espacio ⏯, ←→ ±10 s, ⇧←→ temas, ↑↓ volumen, Intro abre Spotify, Esc salir'],
+  [`${etiquetaAtajo('KeyB')} (B en el refugio)`, 'barra de ventanas con el teclado: ←→ elegir, ↑↓ fila, Intro abrir, X cerrar, M minimizar, Esc salir'],
+  [`${etiquetaAtajo('KeyJ')} (J en el refugio)`, 'la música: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina, la despliega en mano: Espacio ⏯, ←→ ±10 s, ⇧←→ temas, ↑↓ volumen, Intro abre Spotify, Esc salir'],
   ['Esc y Ctrl+C en la terminal', 'van al programa, como en iTerm: paran a Claude Code o salen de él'],
   ['⌘⇧E · ↗', 'sacar la pestaña a una terminal de tu escritorio (ver «A la superficie»)'],
 ];
@@ -372,7 +373,6 @@ function OpcionesJuego() {
 
 // ---------------------------------------------------------------- menú del juego (Esc)
 // Solo lo que es del juego en sí; lo demás (conversaciones, aparatos, webs, salas) está en el buscador (⌘K)
-const MAC_K = /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl+';
 function MenuJuego() {
   const vivas = Object.values(vivo.usar(e => e.sesiones)).filter(s => s.estado !== 'cerrada').length;
   const terms = terminalesAbiertas.usar(e => e.lista.length);
@@ -380,7 +380,7 @@ function MenuJuego() {
   const sub = (p: Panel) => () => { SFX.clic(); abrirPanel(p, { desde: 'menu' }); };
   const items: (ItemMenu & { f: () => void })[] = [
     { texto: 'Volver al refugio', pista: 'Esc', f: cerrarPanel },
-    { texto: 'Buscar conversaciones, acciones y salas', pista: `${MAC_K}K`, f: () => { cerrarPanel(); abrirBuscador(); } },
+    { texto: 'Buscar conversaciones, acciones y salas', pista: etiquetaAtajo('KeyK'), f: () => { cerrarPanel(); abrirBuscador(); } },
     { texto: 'Opciones', pista: 'sonido e idioma del dictado', f: sub('opciones') },
     { texto: 'Atajos de teclado', pista: 'F1', f: sub('ayuda') },
     { texto: 'Reiniciar el juego', pista: 'aplica los cambios del servidor; las terminales siguen', f: sub('reiniciar') },
@@ -391,7 +391,7 @@ function MenuJuego() {
   return (
     <Aparato rotulo="MENÚ DEL SUPERVISOR" ancho={46}>
       <Opciones items={items} i={i} setI={setI} alElegir={k => items[k].f()} />
-      <Teclas><kbd>↑↓</kbd>elegir <kbd>Enter</kbd>aceptar <kbd>Esc</kbd>volver al refugio <kbd>{MAC_K}K</kbd>buscar todo lo demás</Teclas>
+      <Teclas><kbd>↑↓</kbd>elegir <kbd>Enter</kbd>aceptar <kbd>Esc</kbd>volver al refugio <kbd>{etiquetaAtajo('KeyK')}</kbd>buscar todo lo demás</Teclas>
     </Aparato>
   );
 }

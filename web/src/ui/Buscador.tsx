@@ -11,7 +11,7 @@ import { Almacen } from './almacen';
 import { juego } from './estadoJuego';
 import { vivo, cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
-import { MAC } from './ventanas';
+import { esAtajo, etiquetaAtajo } from './teclas';
 import { abrirPanel, irA, ocupados, abrirGitDeSala } from './Paneles';
 import { minimizarIntercom, abrirConversacion, retomarConversacion, hace } from './Dialogo';
 import { duenoSesion } from './copias';
@@ -34,7 +34,8 @@ function cerrarBuscador(volverAlFoco = true) {
   if (volverAlFoco && antes instanceof HTMLElement && document.contains(antes)) antes.focus();
   antes = null;
 }
-const esCmdK = (e: KeyboardEvent) => (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyK';
+// ⌘K en macOS; Ctrl+Mayús+K en Linux (Ctrl+K es de la terminal y de los editores de las webs)
+const esCmdK = (e: KeyboardEvent) => esAtajo(e, 'KeyK', { mayus: false });
 // en captura: antes que las terminales y los intercomunicadores (⌘K es del refugio en todas partes)
 addEventListener('keydown', e => {
   if (!esCmdK(e)) return;
@@ -47,7 +48,6 @@ addEventListener('keydown', e => {
 // ---------------------------------------------------------------- lo que se puede hacer
 // antes de una acción del refugio, se despeja la vista (aparato abierto o intercomunicador delante)
 function alRefugio() { if (juego.get().panel) juego.set({ panel: null, panelDatos: null }); minimizarIntercom(); }
-const K = MAC ? '⌘' : 'Ctrl+';
 interface Accion { id: string; texto: string; pista?: string; tecla?: string; claves?: string; f: () => void }
 function acciones(): Accion[] {
   const j = juego.get();
@@ -64,8 +64,8 @@ function acciones(): Accion[] {
     { id: 'comunicaciones', texto: 'Comunicaciones', pista: 'correo y chats', tecla: 'N', claves: 'correo mail chats avisos notificaciones tablon', f: () => { alRefugio(); irA('comunicaciones'); } },
     { id: 'planificacion', texto: 'Planificación', pista: 'calendario y agenda', tecla: 'C', claves: 'calendario agenda reuniones eventos', f: () => { alRefugio(); irA('planificacion'); } },
     { id: 'logistica', texto: 'Logística', pista: 'tablero de Linear', tecla: 'L', claves: 'linear tareas issues tablero', f: () => { alRefugio(); irA('logistica'); } },
-    { id: 'musica', texto: 'Música', pista: 'Spotify y la pletina', tecla: `${K}J`, claves: 'spotify musica discoteca pletina', f: () => atajoMusica() },
-    { id: 'barra', texto: 'Ventanas abiertas', pista: 'la barra de abajo, con el teclado', tecla: `${K}B`, claves: 'barra ventanas minimizadas', f: () => entrarBarra() },
+    { id: 'musica', texto: 'Música', pista: 'Spotify y la pletina', tecla: etiquetaAtajo('KeyJ'), claves: 'spotify musica discoteca pletina', f: () => atajoMusica() },
+    { id: 'barra', texto: 'Ventanas abiertas', pista: 'la barra de abajo, con el teclado', tecla: etiquetaAtajo('KeyB'), claves: 'barra ventanas minimizadas', f: () => entrarBarra() },
     { id: 'chapa', texto: 'Chapa y Pintura', pista: 'cambiar tu aspecto o el de un habitante', tecla: 'P', claves: 'aspecto ropa pelo probador personaje', f: () => { alRefugio(); abrirPanel('chapa'); } },
     { id: 'inventario', texto: 'Inventario y tienda', tecla: 'I', claves: 'tienda chatarra accesorios guia', f: () => { alRefugio(); abrirPanel('inventario'); } },
     { id: 'camara', texto: 'Cámara acorazada', pista: 'credenciales, integraciones y ajustes del refugio', claves: 'credenciales claves integraciones ajustes llavero limite sesiones raiz repos atuendo', f: () => { alRefugio(); irA('camara'); abrirPanel('camara'); } },
@@ -177,7 +177,7 @@ function Ventana() {
               else if (e.key === 'Enter') { e.preventDefault(); elegir(i); }
               e.stopPropagation();
             }} />
-          <span className="tecla">{K}K</span>
+          <span className="tecla">{etiquetaAtajo('KeyK')}</span>
         </div>
         <div className="buscador-lista" ref={lista}>
           {filas.map((f, k) => (

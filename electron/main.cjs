@@ -21,8 +21,9 @@ let ventana, origen, servidor;
 let huellaApp = '';
 try { huellaApp = require('../scripts/huellas.cjs').huella('app'); } catch (e) { console.error('Sin huella de la app:', e?.message ?? e); }
 const CODIGO_RELEVO = 76;
-// fuera del juego solo se abren webs y correo: nada de file:, javascript: ni esquemas que lanzan otras apps
-function abrirFuera(u) { if (plataforma.esEnlaceExterno(u)) shell.openExternal(new URL(u).href).catch(() => {}); }
+// fuera del juego solo se abren webs y correo: nada de file:, javascript: ni esquemas que lanzan otras apps. Siempre
+// devuelve una promesa que no falla (hoy nadie la espera: chromeRemoto.cjs la llama y sigue), por si alguien la encadena
+function abrirFuera(u) { return plataforma.esEnlaceExterno(u) ? shell.openExternal(new URL(u).href).catch(() => {}) : Promise.resolve(); }
 // el juego es su origen exacto (http://127.0.0.1:<puerto>), no algo que empiece igual (http://127.0.0.1:37780…)
 const delJuego = u => { try { return !!origen && new URL(u).origin === origen; } catch { return false; } };
 // los permisos que usa el juego: el micrófono para dictar (web/src/ui/entrada.tsx) y el portapapeles (copiar en el
@@ -105,20 +106,19 @@ function configurarNavegador(v, wc, dominios) {
     return { action: 'deny' };
   });
   // las teclas del navegador las resuelve él; las de ventana del refugio suben al juego (Esc y el resto, a la página).
-  // Con Command en macOS y con Control en Linux
+  // Con Command en macOS; en Linux, Ctrl+Mayús las del refugio y Ctrl las de navegador (plataforma.atajoNavegador)
   wc.on('before-input-event', (e, k) => {
-    if (k.type !== 'keyDown' || !plataforma.atajoWebview(process.platform, k) || k.alt) return;
-    const tecla = k.code;
-    if (tecla === 'KeyR') { e.preventDefault(); k.shift ? wc.reloadIgnoringCache() : wc.reload(); }
-    else if (tecla === 'BracketLeft' && !k.shift) { e.preventDefault(); if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); }
-    else if (tecla === 'BracketRight' && !k.shift) { e.preventDefault(); if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); }
-    else if (tecla === 'Equal' || tecla === 'Minus' || tecla === 'Digit0') { e.preventDefault(); wc.setZoomLevel(tecla === 'Digit0' ? 0 : wc.getZoomLevel() + (tecla === 'Equal' ? 0.5 : -0.5)); }
-    else if (tecla === 'KeyJ' && !k.shift) { e.preventDefault(); v.webContents.executeJavaScript('window.__atajoMusica && window.__atajoMusica()').catch(() => {}); }   // la música
-    else if (tecla === 'KeyK' && !k.shift) { e.preventDefault(); v.webContents.executeJavaScript('window.__atajoBuscador && window.__atajoBuscador()').catch(() => {}); }   // el buscador
-    else if (['KeyM', 'KeyW', 'KeyB'].includes(tecla)) {
-      e.preventDefault();
-      v.webContents.executeJavaScript(`window.__atajoNavegador && window.__atajoNavegador(${wc.id}, ${JSON.stringify({ code: tecla, key: k.key, shiftKey: !!k.shift })})`).catch(() => {});
-    }
+    const tecla = k.type === 'keyDown' ? plataforma.atajoNavegador(process.platform, k) : null;
+    if (!tecla) return;
+    e.preventDefault();
+    if (tecla === 'KeyR') { k.shift ? wc.reloadIgnoringCache() : wc.reload(); }
+    else if (tecla === 'BracketLeft') { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); }
+    else if (tecla === 'BracketRight') { if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); }
+    else if (tecla === 'Equal' || tecla === 'Minus' || tecla === 'Digit0') wc.setZoomLevel(tecla === 'Digit0' ? 0 : wc.getZoomLevel() + (tecla === 'Equal' ? 0.5 : -0.5));
+    else if (tecla === 'KeyJ') v.webContents.executeJavaScript('window.__atajoMusica && window.__atajoMusica()').catch(() => {});   // la música
+    else if (tecla === 'KeyK') v.webContents.executeJavaScript('window.__atajoBuscador && window.__atajoBuscador()').catch(() => {});   // el buscador
+    // M, W y B: a la ventana del navegador en el juego, con sus modificadores
+    else v.webContents.executeJavaScript(`window.__atajoNavegador && window.__atajoNavegador(${wc.id}, ${JSON.stringify(plataforma.teclasReenviadas(k))})`).catch(() => {});
   });
   wc.on('context-menu', (_e, p) => {
     const m = [];
@@ -250,18 +250,20 @@ async function arrancar() {
   entornoServidor = entorno;
   // la app lleva su propia copia de Electron: si no es la del repo (p. ej. tras cambiar de versión en package.json), se
   // reinstala y se vuelve a abrir sola (scripts/relevar-app.cjs) antes de arrancar nada. Solo en macOS, el de la app
-  if (process.platform === 'darwin') try {
-    const relevo = require(path.join(raiz, 'scripts/relevar-app.cjs'));
-    const propia = relevo.appDe(process.execPath);
-    if (relevo.hayQueReinstalar(propia) && !relevo.reinstalarFallidoHacePoco()) {
-      aviso(`Poniendo al día la app (Electron ${relevo.versionElectron(propia)} → ${relevo.versionElectron(path.join(raiz, 'node_modules/electron/dist/Electron.app'))})…`);
-      log.write(`La app lleva otro Electron que el repo: la reinstalo y la vuelvo a abrir.\n`);
-      spawn('node', [path.join(raiz, 'scripts/relevar-app.cjs'), String(process.pid), propia, entorno.SHELTER_PUERTO || '3778', process.env.SHELTER_RELEVO_PRUEBA || ''], { cwd: raiz, env: entorno, detached: true, stdio: 'ignore' }).unref();
-      if (ventana) ventana.__salir = true;
-      setTimeout(() => app.exit(0), 1500);
-      return;
-    }
-  } catch (e) { log.write(`No he podido comprobar el Electron de la app: ${e?.message ?? e}\n`); }
+  if (process.platform === 'darwin') {
+    try {
+      const relevo = require(path.join(raiz, 'scripts/relevar-app.cjs'));
+      const propia = relevo.appDe(process.execPath);
+      if (relevo.hayQueReinstalar(propia) && !relevo.reinstalarFallidoHacePoco()) {
+        aviso(`Poniendo al día la app (Electron ${relevo.versionElectron(propia)} → ${relevo.versionElectron(path.join(raiz, 'node_modules/electron/dist/Electron.app'))})…`);
+        log.write(`La app lleva otro Electron que el repo: la reinstalo y la vuelvo a abrir.\n`);
+        spawn('node', [path.join(raiz, 'scripts/relevar-app.cjs'), String(process.pid), propia, entorno.SHELTER_PUERTO || '3778', process.env.SHELTER_RELEVO_PRUEBA || ''], { cwd: raiz, env: entorno, detached: true, stdio: 'ignore' }).unref();
+        if (ventana) ventana.__salir = true;
+        setTimeout(() => app.exit(0), 1500);
+        return;
+      }
+    } catch (e) { log.write(`No he podido comprobar el Electron de la app: ${e?.message ?? e}\n`); }
+  }
   servidor = spawn('/bin/bash', [path.join(raiz, 'shelter')], { cwd: raiz, env: { ...entorno, SHELTER_DESDE_APP: '1', SHELTER_HUELLA_APP: huellaApp }, stdio: ['ignore', 'pipe', 'pipe'] });
   let ultima = '', resto = '';
   const leer = trozo => {

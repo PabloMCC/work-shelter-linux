@@ -4,12 +4,11 @@
 //   ⌘T pestaña nueva · ⌘W cerrar la pestaña · ⌘⇧W cerrar la ventana · ⌘1…⌘9 y ⌃Tab cambiar de pestaña
 //   ⌘↑ ampliar · ⌘↓ restaurar (si está ampliada) o minimizar · ⌘M minimizar
 //   ⌘⇧E sacar la pestaña a una terminal de tu escritorio (iTerm): «salir a la superficie»
+// En Linux, con Ctrl+Mayús en vez de ⌘ (teclas.ts); en un navegador del refugio, cerrar es Ctrl+W.
 // Minimizar deja la ventana en la barra de abajo a la izquierda (Barra.tsx) con todo en marcha.
 import React, { useEffect, useRef } from 'react';
-
-export const MAC = /Mac/.test(navigator.platform);
-// en macOS, ⌘; en el resto, Ctrl+Shift (como las terminales de Linux)
-export const CMD = MAC ? '⌘' : 'Ctrl+Shift+';
+import { MAC, CMD, conModificador, esAtajo, etiquetaAtajo } from './teclas';
+export { MAC, CMD };
 
 // orden de apilado común a todas las ventanas
 let z = 50;
@@ -27,14 +26,14 @@ export interface AccionesVentana {
   sacar?: () => void;                    // a una terminal de tu escritorio
 }
 /** Atajos de ventana; devuelve true si la tecla era uno de ellos (y ya se ha hecho). */
-export function atajoVentana(e: KeyboardEvent | React.KeyboardEvent, a: AccionesVentana): boolean {
+// navegador: la ventana es un navegador del refugio, donde cerrar es de navegador (Ctrl+W en Linux)
+export function atajoVentana(e: KeyboardEvent | React.KeyboardEvent, a: AccionesVentana, o: { navegador?: boolean } = {}): boolean {
   let f: (() => void) | null = null;
-  const cmd = MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && e.shiftKey;
   if (e.ctrlKey && !e.metaKey && e.key === 'Tab') f = () => a.moverPestana(e.shiftKey ? -1 : 1);
-  else if (cmd && !e.altKey) {
+  else if (esAtajo(e, 'KeyW', { clase: o.navegador ? 'navegador' : 'refugio' })) f = e.shiftKey && MAC ? a.cerrarVentana : a.cerrarPestana;
+  else if (conModificador(e, 'refugio')) {
     if (e.code === 'KeyT' && a.nuevaPestana) f = a.nuevaPestana;
-    else if (e.code === 'KeyW') f = e.shiftKey && MAC ? a.cerrarVentana : a.cerrarPestana;
-    else if (e.code === 'KeyM') f = a.minimizar;
+    else if (esAtajo(e, 'KeyM')) f = a.minimizar;
     else if (e.code === 'KeyE' && e.shiftKey && a.sacar) f = a.sacar;
     else if (e.key === 'ArrowUp') f = () => { if (!a.maximizada) a.alternarMaximizar(); };
     else if (e.key === 'ArrowDown') f = a.maximizada ? a.alternarMaximizar : a.minimizar;
@@ -66,7 +65,7 @@ export function Pestanas({ items, activa, activar, cerrar, nueva, queAbre }: { i
           title={(p.titulo ?? '') + (i < 9 ? ` · ${CMD}${i + 1}` : '')}>
           <span className={'piloto ' + p.piloto} />
           <span className="vt-pestana-nombre">{p.nombre}</span>
-          <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar(p.id); }} title={`Cerrar la pestaña (${CMD}W)`}>×</button>
+          <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar(p.id); }} title={`Cerrar la pestaña (${etiquetaAtajo('KeyW', { clase: 'refugio' })})`}>×</button>
         </div>
       ))}
       {nueva && <button className="vt-nueva" onClick={nueva} title={`${queAbre} (${CMD}T)`}>+</button>}

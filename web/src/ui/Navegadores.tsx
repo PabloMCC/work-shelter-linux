@@ -4,13 +4,15 @@
 // tamaño: normal es un cuadro centrado al 75 % del ancho en 16:9; ampliado, toda la pantalla.
 // Por dentro es un <webview> de Electron (electron/main.cjs): sesión propia que se guarda (los logins duran), se queda
 // en el dominio de su web y lo de fuera va al navegador del sistema. ⌘R recarga, ⌘[ y ⌘] van atrás y adelante,
-// ⌘+ y ⌘- acercan; ⌘M minimiza y ⌘W cierra; Esc y lo demás, a la página. Fuera de Electron, se abre fuera.
+// ⌘+ y ⌘- acercan; ⌘M minimiza y ⌘W cierra; Esc y lo demás, a la página. En Linux, con Ctrl (Ctrl+Mayús+M para
+// minimizar: teclas.ts). Fuera de Electron, se abre fuera.
 // Spotify es distinto (remoto): suena en un Google Chrome sin ventana (electron/chromeRemoto.cjs: su DRM no admite el
 // Electron del juego) y aquí se ve su página y se le pasan ratón, rueda y teclado (VistaRemota).
 import React, { useEffect, useRef } from 'react';
 import { Almacen } from './almacen';
 import { SFX } from '../audio/sonido';
-import { siguienteZ, atajoVentana, BotonesVentana, CMD } from './ventanas';
+import { siguienteZ, atajoVentana, BotonesVentana } from './ventanas';
+import { esAtajo, etiquetaAtajo } from './teclas';
 
 // dominios: los de la web (y sus subdominios), para abrir dentro sus enlaces; electron/main.cjs tiene sus familias
 // desvios: rutas de la web que llevan a otra (p. ej. avisos que no aplican aquí): se va directamente a la de destino
@@ -123,12 +125,13 @@ const acciones = (v: VentanaNav) => ({
   alternarMaximizar: () => alternarMaximizar(v.id), irPestana: () => {}, moverPestana: () => {},
 });
 // con el foco dentro de la web, las teclas no pasan por la página del juego: Electron manda aquí las de ventana
-(window as any).__atajoNavegador = (wcId: number, k: { code: string; key: string; shiftKey: boolean }) => {
+// (con sus modificadores tal cual: ⌘ en macOS y Ctrl en Linux; electron/plataforma.cjs, teclasReenviadas)
+(window as any).__atajoNavegador = (wcId: number, k: { code: string; key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
   const id = [...webviews].find(([, w]) => { try { return w.getWebContentsId() === wcId; } catch { return false; } })?.[0];
   const v = id ? ventana(id) : undefined; if (!v) return;
-  const e = new KeyboardEvent('keydown', { code: k.code, key: k.key, shiftKey: k.shiftKey, metaKey: true, bubbles: true, cancelable: true });
+  const e = new KeyboardEvent('keydown', { code: k.code, key: k.key, shiftKey: k.shiftKey, ctrlKey: k.ctrlKey, metaKey: k.metaKey, bubbles: true, cancelable: true });
   // ⌘B (la barra) escucha en la ventana; el resto son de esta ventana del navegador
-  if (k.code === 'KeyB') dispatchEvent(e); else atajoVentana(e, acciones(v));
+  if (k.code === 'KeyB') dispatchEvent(e); else atajoVentana(e, acciones(v), { navegador: true });
 };
 
 // tras una recarga (aplicar cambios del juego, reiniciar), los navegadores vuelven como estaban y en su página
@@ -184,14 +187,14 @@ function VentanaNavegador({ v }: { v: VentanaNav }) {
   return (
     <div className={'ventana-navegador interactivo' + (v.maximizada ? ' maximizada' : '') + (v.minimizada ? ' minimizada' : '')}
       style={{ zIndex: v.maximizada ? 200000 + v.z : v.z }} onPointerDown={() => { if (!v.minimizada) alFrente(v.id); }}
-      onKeyDownCapture={e => atajoVentana(e, acciones(v))} role="dialog" aria-label={`Navegador: ${s?.nombre ?? v.id}`}>
+      onKeyDownCapture={e => atajoVentana(e, acciones(v), { navegador: true })} role="dialog" aria-label={`Navegador: ${s?.nombre ?? v.id}`}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) alternarMaximizar(v.id); }}>
         <span className="rejilla" /><span className={'piloto ' + (v.cargando ? 'trabajando' : 'ociosa')} />
         <span className="vt-titulo">NAVEGADOR · {s?.nombre ?? v.id}</span>
         <span className="vt-ruta" title={v.url}>{pagina}</span>
         <span className="vn-mandos">
-          <button className="consola-x" onClick={() => { if (esRemoto(v.id)) { ordenRemota('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.noPermitido(); }} title={`Atrás (${CMD}[)`}>◂</button>
-          <button className="consola-x" onClick={() => { if (esRemoto(v.id)) ordenRemota('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={`Recargar (${CMD}R)`}>↻</button>
+          <button className="consola-x" onClick={() => { if (esRemoto(v.id)) { ordenRemota('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.noPermitido(); }} title={`Atrás (${etiquetaAtajo('BracketLeft')})`}>◂</button>
+          <button className="consola-x" onClick={() => { if (esRemoto(v.id)) ordenRemota('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={`Recargar (${etiquetaAtajo('KeyR')})`}>↻</button>
           <button className="consola-x" onClick={() => { window.open(v.url, '_blank'); SFX.clic(); }} title="Abrir esta página en el navegador del sistema">↗</button>
         </span>
         <BotonesVentana maximizada={v.maximizada} minimizar={() => minimizar(v.id)} alternarMaximizar={() => alternarMaximizar(v.id)} cerrar={() => cerrar(v.id)} queCierra="el navegador (la sesión se queda)" />
@@ -262,7 +265,7 @@ function VistaRemota({ v }: { v: VentanaNav }) {
   const tecla = (type: 'keyDown' | 'keyUp') => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const n = e.nativeEvent;
     if (n.isComposing || e.key === 'Dead' || e.key === 'Process') return;   // acentos: llegan enteros al terminar
-    if (e.metaKey && (e.code === 'KeyB' || e.code === 'KeyJ')) return;        // la barra y la música del refugio
+    if (esAtajo(e, 'KeyB') || esAtajo(e, 'KeyJ')) return;        // la barra y la música del refugio
     e.preventDefault(); e.stopPropagation();
     if (type === 'keyDown' && e.metaKey && e.code === 'KeyV' && !e.shiftKey) {
       navigator.clipboard.readText().then(texto => { if (texto) ordenRemota('entrada', { tipo: 'texto', texto }).catch(() => {}); }).catch(() => {});

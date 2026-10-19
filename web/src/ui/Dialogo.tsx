@@ -29,6 +29,7 @@ import { teclaFisica } from '../audio/teclado';
 import { Almacen } from './almacen';
 import { useMenu as useMenuBase, Opciones } from './aparato';
 import { CMD, siguienteZ, atajoVentana, BotonesVentana, Pestanas, Confirmacion } from './ventanas';
+import { CTRL } from './teclas';
 import { duenoSesion, interlocutor, rotuloRama } from './copias';
 import { sacarASuperficie } from './superficie';
 import { type AdjuntoLocal, subirArchivos, elegirArchivos, subiendo, rutasListas, BandejaAdjuntos, AdjuntosEnviados, useDictado, BotonesEntrada, TiraDictado, atajoAdjuntar } from './entrada';
@@ -618,7 +619,7 @@ function Nuevo({ h, p, reanudar, volver }: { h: ResumenHabitante; p: PestanaCom;
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>En un worktree aparte</button>
         </div>}
         {error && <p className="aviso-consola">{error}</p>}
-        <p className="ayuda-consola"><kbd>Enter</kbd> empezar <kbd>⇧ Enter</kbd> salto de línea <kbd>{CMD}D</kbd> dictar <kbd>{CMD}U</kbd> adjuntar <kbd>Tab</kbd> opciones <kbd>←→</kbd> elegir <kbd>Esc</kbd> {esc.armado ? <span className="urgente">otra vez: atrás y borrar lo escrito</span> : 'atrás'}</p>
+        <p className="ayuda-consola"><kbd>Enter</kbd> empezar <kbd>⇧ Enter</kbd> salto de línea <kbd>{CTRL}D</kbd> dictar <kbd>{CTRL}U</kbd> adjuntar <kbd>Tab</kbd> opciones <kbd>←→</kbd> elegir <kbd>Esc</kbd> {esc.armado ? <span className="urgente">otra vez: atrás y borrar lo escrito</span> : 'atrás'}</p>
       </div>
     </div>
   );
@@ -721,7 +722,7 @@ function Sesion({ h, s, p, salir, alCerrar }: { h: ResumenHabitante; s: ResumenS
       )}
       {!s.pendiente && <BandejaAdjuntos lista={p.adjuntos} quitar={quitarAdjunto(h.id, p.id)} />}
       {!s.pendiente && <TiraDictado dictado={dictado} />}
-      <p className="ayuda-consola"><kbd>Enter</kbd> enviar <kbd>{CMD}D</kbd> dictar <kbd>{CMD}U</kbd> adjuntar <kbd>Ctrl C</kbd> parar <kbd>Esc</kbd> {esc.armado ? <span className="urgente">otra vez: borrar lo escrito</span> : texto ? 'dos veces: borrar lo escrito' : 'volver al refugio (sigue trabajando)'} <kbd>{CMD}T</kbd> otro trabajo <kbd>{CMD}↑↓</kbd> ampliar/minimizar</p>
+      <p className="ayuda-consola"><kbd>Enter</kbd> enviar <kbd>{CTRL}D</kbd> dictar <kbd>{CTRL}U</kbd> adjuntar <kbd>Ctrl C</kbd> parar <kbd>Esc</kbd> {esc.armado ? <span className="urgente">otra vez: borrar lo escrito</span> : texto ? 'dos veces: borrar lo escrito' : 'volver al refugio (sigue trabajando)'} <kbd>{CMD}T</kbd> otro trabajo <kbd>{CMD}↑↓</kbd> ampliar/minimizar</p>
     </div>
   );
 }
