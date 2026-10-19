@@ -5,13 +5,15 @@ import path from 'node:path';
 import os from 'node:os';
 import { createReadStream, existsSync, statSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync } from 'node:fs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { execFile, execFileSync, spawn } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { NOMBRE_JUEGO, type MensajeCliente, type MensajeServidor, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
 import { Sesiones } from './sesiones.ts';
 import { Adjuntos } from './adjuntos.ts';
 import { abrirAdjunto, esPaquete } from './abrir.ts';
+import { lanzar, ordenesAbrirEn } from './plataforma.ts';
 import { clonarEjemplos, pararClones, rutaEjemplo, esClonDeEjemplo } from './ejemplos.ts';
 import { mcpDecorado, PROMPT_ADAPTAR, type CtxDecorado } from './decoradoSala.ts';
 import { capturarSala } from './capturaSala.ts';
@@ -514,16 +516,17 @@ function comprobarServidor() {
   }));
 }
 
-function crearCarpeta(ruta: string, conGit: boolean) {
-  return new Promise<void>((res, rej) => execFile('/bin/mkdir', ['-p', ruta], err => err ? rej(err) : conGit ? execFile('git', ['init', ruta], e2 => e2 ? rej(e2) : res()) : res()));
+async function crearCarpeta(ruta: string, conGit: boolean) {
+  await mkdir(ruta, { recursive: true });
+  if (conGit) await new Promise<void>((res, rej) => execFile('git', ['init', ruta], e => e ? rej(e) : res()));
 }
 
 function abrirEn(app: string, ruta: string) {
   const r = path.resolve(ruta);
   if (!salaDeRuta(r)) throw new Error('Esa carpeta no pertenece a ninguna sala.');
-  if (!['finder', 'terminal', 'editor'].includes(app) || !existsSync(r) || !statSync(r).isDirectory()) throw new Error('Solo se abren carpetas de sala en Finder, Terminal o el editor.');
-  const args = app === 'finder' ? (esPaquete(r) ? ['-R', r] : [r]) : app === 'terminal' ? ['-a', 'Terminal', r] : (existsSync('/Applications/Cursor.app') ? ['-a', 'Cursor', r] : existsSync('/Applications/Visual Studio Code.app') ? ['-a', 'Visual Studio Code', r] : ['-a', 'TextEdit', r]);
-  spawn('open', args, { detached: true, stdio: 'ignore' }).unref();
+  if (app !== 'finder' && app !== 'terminal' && app !== 'editor' || !existsSync(r) || !statSync(r).isDirectory()) throw new Error('Solo se abren carpetas de sala en Finder, Terminal o el editor.');
+  // sin terminal en Linux, ordenesAbrirEn lanza un error que vuelve en la respuesta a quien lo pidió
+  lanzar(ordenesAbrirEn(app, r, { paquete: esPaquete(r) }));
   return true;
 }
 

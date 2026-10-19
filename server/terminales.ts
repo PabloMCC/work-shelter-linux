@@ -3,18 +3,19 @@
 // (anfitrionTerminales.ts) para sobrevivir a un reinicio del servidor; aquí se reparten a las pestañas y, tras una
 // recarga del cliente o un reinicio, se reenganchan al socket nuevo con lo que ya había en pantalla.
 import path from 'node:path';
-import os from 'node:os';
 import net from 'node:net';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { DATOS } from './estado.ts';
+import { carpetaSockets, shellInteractivo } from './plataforma.ts';
 
 type Oyente = (m: any) => void;
 interface Term { shell: string; cwd: string; oyentes: Set<Oyente>; bufer: string; sufijo: string; ultimo?: string; fuera: number; enPrompt?: boolean; programa?: string }
 
-// en la carpeta temporal del usuario (privada en macOS) y corta: los sockets Unix no admiten rutas largas
-export const SOCKET_TERMINALES = path.join(os.tmpdir(), `work-shelter-${createHash('sha1').update(path.resolve(DATOS)).digest('hex').slice(0, 10)}.sock`);
+// en una carpeta privada del usuario (la temporal en macOS; $XDG_RUNTIME_DIR en Linux, donde /tmp es compartida) y
+// corta: los sockets Unix no admiten rutas largas
+export const SOCKET_TERMINALES = path.join(carpetaSockets(), `work-shelter-${createHash('sha1').update(path.resolve(DATOS)).digest('hex').slice(0, 10)}.sock`);
 const ANFITRION = path.join(import.meta.dirname, 'anfitrionTerminales.ts');
 // lo que identifica a la terminal desde la que se lanzó el juego (iTerm, Terminal…) no vale dentro de la del juego
 const AJENAS = /^(CLAUDE_CODE|CLAUDECODE$|SHELTER_|ITERM_|LC_TERMINAL|TERM_PROGRAM|TERM_SESSION_ID$|KITTY_|WEZTERM_|GHOSTTY_|VSCODE_|COLORFGBG$)/;
@@ -108,7 +109,7 @@ export class Terminales {
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !AJENAS.test(k)) env[k] = v;
     env.TERM = 'xterm-256color'; env.COLORTERM = 'truecolor'; env.LANG = env.LANG || 'es_ES.UTF-8';
-    const shell = process.env.SHELL || '/bin/zsh';
+    const shell = shellInteractivo();
     this.t.set(id, { shell: path.basename(shell), cwd: dir, oyentes: new Set([enviar]), bufer: '', sufijo: '', fuera: 0 });
     this.op({ op: 'abrir', id, cwd: dir, cols: Math.max(20, cols), filas: Math.max(5, filas), shell, env });
     setTimeout(() => this.estado(id, true), 300);

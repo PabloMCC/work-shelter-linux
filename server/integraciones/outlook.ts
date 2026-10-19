@@ -4,7 +4,7 @@
 // de cliente en la cámara acorazada: el refugio no trae identificadores de cliente de nadie. OAuth 2.0 código de
 // autorización + PKCE con retorno a http://localhost:<puerto aleatorio> (Entra admite cualquier puerto en localhost).
 // El refresh token va al llavero (outlook.refreshToken). El access token vive solo en memoria.
-import { execFile } from 'node:child_process';
+import { abrirUrl } from '../plataforma.ts';
 import type { Almacen } from '../estado.ts';
 import { ConectorBase, ConfigFuente, ErrorFuente, pedir, retraso, type Campo } from './comun.ts';
 import { leerSecreto, guardarSecreto, borrarSecreto } from './llavero.ts';
@@ -132,7 +132,7 @@ class Outlook extends ConectorBase {
   protected async accionPropia(nombre: string, d: Record<string, any>) {
     if (nombre === 'conectar') {
       const url = await this.iniciarSesion();
-      if (d.abrir !== false) execFile('/usr/bin/open', [url], () => {});   // navegador del sistema (sesión de Microsoft ya abierta)
+      if (d.abrir !== false) abrirUrl(url);   // navegador del sistema (sesión de Microsoft ya abierta)
       return { url };
     }
     if (nombre === 'desconectar') { await borrarSecreto(CUENTA_SESION); this.sesion = false; this.reiniciar(); this.avisar?.('estado'); return this.estado(); }

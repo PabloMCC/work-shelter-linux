@@ -1,6 +1,6 @@
 // Explorador de archivos del refugio: lo que hace la barra lateral de un editor (Cursor, VS Code) con las carpetas de
 // las salas. Listar carpetas (con lo que ignora git atenuado y lo cambiado marcado), leer y guardar archivos de texto
-// (también los que git ignora, como los .env), crear, renombrar, copiar, mover y tirar a la papelera de macOS, y la
+// (también los que git ignora, como los .env), crear, renombrar, copiar, mover y tirar a la papelera del sistema, y la
 // lista de archivos para abrir por nombre (⌘P).
 // Solo dentro de las raíces del refugio (las carpetas de las salas y sus worktrees: las valida quien llama con
 // `raizPermitida`), sin `..` ni enlaces que salgan de la raíz.
@@ -10,6 +10,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { abrirEnEditor as abrirEditorSeguro } from './abrir.ts';
 import { entornoGit } from './entornoGit.ts';
+import { lanzar, ordenesRevelar, ordenPapelera } from './plataforma.ts';
 
 const MAX_TEXTO = 8 * 1024 * 1024;        // más grande no se abre en el editor
 const MAX_IMAGEN = 12 * 1024 * 1024;
@@ -193,16 +194,14 @@ export async function pegar(raiz: string, d: { origenes: unknown; carpeta: unkno
   return { rels: hechos };
 }
 
-/** A la papelera de macOS (se puede recuperar desde el Finder), como hacen los editores. */
+/** A la papelera del sistema (se puede recuperar desde el Finder o el gestor de archivos), como hacen los editores. */
 export async function aLaPapelera(raiz: string, rels: unknown) {
   const abs = await Promise.all((Array.isArray(rels) ? rels : []).slice(0, 500).map(r => { const s = relSeguro(r); if (!s) throw new Error('La raíz no se tira desde aquí.'); return dentro(raiz, s); }));
   if (!abs.length) return;
-  await new Promise<void>((ok, mal) => {
-    if (existsSync('/usr/bin/trash')) return execFile('/usr/bin/trash', abs, err => (err ? mal(new Error('No he podido mandarlo a la papelera: ' + err.message)) : ok()));
-    // macOS anteriores a /usr/bin/trash: el Finder
-    const lista = abs.map(a => `POSIX file ${JSON.stringify(a)}`).join(', ');
-    execFile('osascript', ['-e', `tell application "Finder" to delete {${lista}}`], err => (err ? mal(new Error('No he podido mandarlo a la papelera: ' + err.message)) : ok()));
-  });
+  // sin papelera (Linux sin gio), un error: nunca se borra para siempre en su lugar
+  const o = ordenPapelera(abs);
+  if (!o) throw new Error('No he podido mandarlo a la papelera: falta el programa gio (de GLib), que es el que la maneja en Linux. No he borrado nada.');
+  await new Promise<void>((ok, mal) => execFile(o.bin, o.args, err => (err ? mal(new Error('No he podido mandarlo a la papelera: ' + err.message)) : ok())));
 }
 
 // ---------------------------------------------------------------- todos los archivos (para abrir por nombre, ⌘P)
@@ -235,8 +234,8 @@ export async function todos(raiz: string): Promise<{ rels: string[]; recortado: 
 }
 
 // ---------------------------------------------------------------- fuera del juego
-export async function revelar(raiz: string, rel: unknown) { const abs = await dentro(raiz, relSeguro(rel)); spawn('open', ['-R', abs], { detached: true, stdio: 'ignore' }).unref(); }
-// en el editor (o en el de texto de macOS; carpetas y paquetes, en el Finder): nunca con la app por defecto (abrir.ts)
+export async function revelar(raiz: string, rel: unknown) { const abs = await dentro(raiz, relSeguro(rel)); lanzar(ordenesRevelar(abs)); }
+// en el editor (o en el de texto del sistema; carpetas y paquetes, en el gestor de archivos): nunca con la app por defecto (abrir.ts)
 export async function abrirEnEditor(raiz: string, rel: unknown) { await abrirEditorSeguro(raiz, await dentro(raiz, relSeguro(rel))); }
 
 // ---------------------------------------------------------------- despacho
