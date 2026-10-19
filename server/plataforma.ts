@@ -4,7 +4,7 @@
 // pruebe igual en los dos sistemas, más unos lanzadores finos que la ejecutan. En macOS todo es lo de siempre.
 // Módulo hoja: no importa nada del servidor (ejemplos.ts no puede importar estado.ts y los dos lo usan).
 import { execFile, execFileSync, spawn } from 'node:child_process';
-import { accessSync, constants, existsSync, statSync } from 'node:fs';
+import { accessSync, constants, existsSync, realpathSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -15,7 +15,8 @@ export type Plataforma = NodeJS.Platform;
 type Entorno = Record<string, string | undefined>;
 /** Busca un ejecutable y devuelve su ruta (o null); en los tests, un PATH falso */
 export type Buscador = (nombre: string) => string | null;
-export interface Deteccion { buscar?: Buscador; existe?: (ruta: string) => boolean; env?: Entorno }
+/** Lo que se mira del sistema, cambiable en los tests: el PATH, si existe una ruta, la ruta real (sin enlaces) y el entorno */
+export interface Deteccion { buscar?: Buscador; existe?: (ruta: string) => boolean; real?: (ruta: string) => string; env?: Entorno }
 /** Lo que se sabe del destino antes de decidir con qué abrirlo */
 export interface Destino { carpeta: boolean; paquete?: boolean; ejecutable?: boolean }
 
@@ -69,15 +70,30 @@ export function ordenesRevelar(abs: string, p: Plataforma = process.platform): O
 }
 
 // ---------------------------------------------------------------- editor
-/** Editores de Linux, por preferencia (zeditor es el nombre de Zed en algunas distribuciones) */
-export const EDITORES_LINUX = ['zed', 'zeditor', 'cursor', 'code'] as const;
-export const editorLinux = (buscar: Buscador = buscarEnPath) => EDITORES_LINUX.map(e => buscar(e)).find((r): r is string => !!r) ?? null;
+/** Editores de Linux, por preferencia. Las distribuciones empaquetan Zed como `zeditor` porque `zed` ya es el demonio de
+ *  eventos de ZFS (zfs-utils, en /usr/bin): un `zed` solo vale si es el de Zed, el del instalador oficial */
+export const EDITORES_LINUX = ['zeditor', 'zed', 'cursor', 'code'] as const;
+/** El `zed` de Zed: su ruta real (~/.local/bin/zed es un enlace) está en zed.app/bin, junto a zed.app/libexec/zed-editor */
+function esZedEditor(ruta: string, o: Deteccion) {
+  try { return (o.existe ?? existsSync)(path.join(path.dirname((o.real ?? realpathSync)(ruta)), '..', 'libexec', 'zed-editor')); } catch { return false; }
+}
+export function editorLinux(o: Deteccion = {}): string | null {
+  const buscar = o.buscar ?? buscarEnPath;
+  for (const e of EDITORES_LINUX) { const r = buscar(e); if (r && (e !== 'zed' || esZedEditor(r, o))) return r; }
+  return null;
+}
 const EDITORES_MAC = [['/Applications/Cursor.app', 'Cursor'], ['/Applications/Visual Studio Code.app', 'Visual Studio Code']] as const;
 const editorMac = (existe: (r: string) => boolean = existsSync) => EDITORES_MAC.find(([ruta]) => existe(ruta))?.[1] ?? null;
 
 // sin editor, en Linux solo se le da a xdg-open texto plano que no sea ejecutable: un .sh, un .desktop, un AppImage o
 // un .html irían a su app por defecto, que puede ejecutarlos (en macOS `open -t` fuerza el editor de texto)
-const TEXTO_PLANO = /\.(txt|md|markdown|json|jsonl|csv|tsv|log|ya?ml|toml|ini|conf|diff|patch)$/i;
+// (las extensiones son trozos de expresión regular: `ya?ml` vale para .yml y .yaml)
+const EXT_TEXTO_PLANO = ['txt', 'md', 'markdown', 'json', 'jsonl', 'csv', 'tsv', 'log', 'ya?ml', 'toml', 'ini', 'conf', 'diff', 'patch'];
+const EXT_CODIGO = ['xml', 'html?', 'css', '[cm]?[jt]sx?', 'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'h', 'cc', 'cpp', 'hpp', 'sql'];
+// solo macOS los toma por texto de adjunto (`open -t` no los ejecuta); en Linux, sin editor, se enseñan
+const EXT_SCRIPTS_SHELL = ['sh', 'zsh'];
+const conExtension = (...listas: string[][]) => new RegExp(`\\.(${listas.flat().join('|')})$`, 'i');
+const TEXTO_PLANO = conExtension(EXT_TEXTO_PLANO);
 /** Un archivo o carpeta en el editor; sin editor, el de texto (macOS) o texto plano con xdg-open; lo demás, revelado */
 export function ordenesEditor(real: string, d: Destino, p: Plataforma = process.platform, o: Deteccion = {}): Orden[] {
   if (esMac(p)) {
@@ -85,7 +101,7 @@ export function ordenesEditor(real: string, d: Destino, p: Plataforma = process.
     if (d.carpeta && (d.paquete || !editor)) return ordenesRevelar(real, p);
     return [{ bin: 'open', args: editor ? ['-a', editor, real] : ['-t', real] }];
   }
-  const editor = editorLinux(o.buscar);
+  const editor = editorLinux(o);
   if (editor) return [{ bin: editor, args: [real] }];
   if (!d.carpeta && !d.ejecutable && TEXTO_PLANO.test(real)) return [{ bin: 'xdg-open', args: [real] }];
   return ordenesRevelar(real, p);
@@ -93,9 +109,8 @@ export function ordenesEditor(real: string, d: Destino, p: Plataforma = process.
 
 // ---------------------------------------------------------------- adjuntos
 const DE_VISTA_PREVIA = /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?|pdf)$/i;
-const DE_TEXTO = /\.(txt|md|markdown|json|jsonl|csv|tsv|log|ya?ml|toml|ini|conf|xml|html?|css|[cm]?[jt]sx?|py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|sh|zsh|sql|diff|patch)$/i;
-// en Linux los scripts de shell no cuentan como texto de adjunto: sin editor, enseñados
-const DE_TEXTO_LINUX = /\.(txt|md|markdown|json|jsonl|csv|tsv|log|ya?ml|toml|ini|conf|xml|html?|css|[cm]?[jt]sx?|py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|sql|diff|patch)$/i;
+const DE_TEXTO = conExtension(EXT_TEXTO_PLANO, EXT_CODIGO, EXT_SCRIPTS_SHELL);
+const DE_TEXTO_LINUX = conExtension(EXT_TEXTO_PLANO, EXT_CODIGO);
 /** Adjuntos: imágenes y PDF en su visor, texto en el editor; lo demás (.docx, .zip, .desktop…), solo revelado */
 export function ordenesAdjunto(real: string, d: Destino, p: Plataforma = process.platform, o: Deteccion = {}): Orden[] {
   if (d.carpeta) return ordenesRevelar(real, p);
@@ -136,20 +151,25 @@ export function ordenesAbrirEn(app: 'finder' | 'terminal' | 'editor', dir: strin
   }
   if (esMac(p)) {
     if (app === 'finder') return [{ bin: 'open', args: d.paquete ? ['-R', dir] : [dir] }];
-    const existe = o.existe ?? existsSync;
-    return [{ bin: 'open', args: existe('/Applications/Cursor.app') ? ['-a', 'Cursor', dir] : existe('/Applications/Visual Studio Code.app') ? ['-a', 'Visual Studio Code', dir] : ['-a', 'TextEdit', dir] }];
+    return [{ bin: 'open', args: ['-a', editorMac(o.existe) ?? 'TextEdit', dir] }];
   }
-  const editor = app === 'editor' ? editorLinux(o.buscar) : null;
+  const editor = app === 'editor' ? editorLinux(o) : null;
   return [editor ? { bin: editor, args: [dir] } : { bin: 'xdg-open', args: [dir] }];
 }
 
+/** Cómo se ejecuta una orden: esperando a ver si sale bien (la que tiene respaldo) o suelta (la última); falso en los tests */
+export interface Ejecutor { esperar(o: Orden, cb: (err: Error | null) => void): void; soltar(o: Orden): void }
+const ejecutorReal: Ejecutor = {
+  esperar: (o, cb) => { execFile(o.bin, o.args, { timeout: 10_000, cwd: o.cwd }, err => cb(err)); },
+  // sin listener de 'error', un programa que no existe tumbaría el servidor
+  soltar: o => { spawn(o.bin, o.args, { detached: true, stdio: 'ignore', cwd: o.cwd }).on('error', () => {}).unref(); },
+};
 /** Lanza la primera orden; si hay respaldo, espera a que salga bien y si no, prueba la siguiente. La última, suelta. */
-export function lanzar(ordenes: Orden[]) {
+export function lanzar(ordenes: Orden[], x: Ejecutor = ejecutorReal) {
   const [o, ...resto] = ordenes;
   if (!o) return;
-  // sin listener de 'error', un programa que no existe tumbaría el servidor
-  if (!resto.length) { spawn(o.bin, o.args, { detached: true, stdio: 'ignore', cwd: o.cwd }).on('error', () => {}).unref(); return; }
-  execFile(o.bin, o.args, { timeout: 10_000, cwd: o.cwd }, err => { if (err) lanzar(resto); });
+  if (!resto.length) { x.soltar(o); return; }
+  x.esperar(o, err => { if (err) lanzar(resto, x); });
 }
 
 // ---------------------------------------------------------------- shell y sockets

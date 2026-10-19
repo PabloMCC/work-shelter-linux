@@ -524,7 +524,7 @@ async function crearCarpeta(ruta: string, conGit: boolean) {
 function abrirEn(app: string, ruta: string) {
   const r = path.resolve(ruta);
   if (!salaDeRuta(r)) throw new Error('Esa carpeta no pertenece a ninguna sala.');
-  if (app !== 'finder' && app !== 'terminal' && app !== 'editor' || !existsSync(r) || !statSync(r).isDirectory()) throw new Error('Solo se abren carpetas de sala en Finder, Terminal o el editor.');
+  if ((app !== 'finder' && app !== 'terminal' && app !== 'editor') || !existsSync(r) || !statSync(r).isDirectory()) throw new Error('Solo se abren carpetas de sala en Finder, Terminal o el editor.');
   // sin terminal en Linux, ordenesAbrirEn lanza un error que vuelve en la respuesta a quien lo pidió
   lanzar(ordenesAbrirEn(app, r, { paquete: esPaquete(r) }));
   return true;

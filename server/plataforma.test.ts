@@ -1,17 +1,23 @@
 // Contrato de plataforma.ts: las órdenes de macOS y de Linux se comprueban a la vez, con la plataforma explícita, así
 // que este test da lo mismo en un runner de macOS que en uno de Linux. Ninguno lanza procesos de verdad.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import {
   raizDatos, ordenAbrirUrl, ordenesRevelar, uriParaGestor, ordenesEditor, ordenesAdjunto, ordenPapelera,
   ordenTerminal, editorLinux, carpetaSockets, ordenBuscarClaude, ordenesAbrirEn, shellInteractivo, EDITORES_LINUX,
+  lanzar, type Orden,
 } from './plataforma.ts';
 
 const CASA = '/home/alguien';
 const nada = () => null;
 // un PATH falso: solo están los programas de la lista (devuelve su ruta en /x)
 const conPath = (...hay: string[]) => (n: string) => (hay.includes(n) ? `/x/${n}` : null);
+// el instalador oficial de Zed deja ~/.local/bin/zed como enlace a zed.app/bin/zed, junto a zed.app/libexec/zed-editor
+const ZED_APP = '/home/alguien/.local/zed.app';
+const zedOficial = { real: (r: string) => (r === '/x/zed' ? `${ZED_APP}/bin/zed` : r), existe: (r: string) => r === `${ZED_APP}/libexec/zed-editor` };
+// el zed de zfs-utils (el demonio de eventos de ZFS): un binario suelto en /usr/bin, sin libexec/zed-editor al lado
+const zedDeZfs = { real: (r: string) => (r === '/x/zed' ? '/usr/bin/zed' : r), existe: () => false };
 
 describe('raíz de datos', () => {
   it('macOS: Application Support, como siempre', () => {
@@ -58,13 +64,21 @@ describe('revelar', () => {
 });
 
 describe('editor', () => {
-  it('Linux: zed, luego zeditor, cursor y code', () => {
-    expect(EDITORES_LINUX).toEqual(['zed', 'zeditor', 'cursor', 'code']);
-    expect(editorLinux(conPath('code', 'cursor', 'zeditor', 'zed'))).toBe('/x/zed');
-    expect(editorLinux(conPath('code', 'cursor', 'zeditor'))).toBe('/x/zeditor');
-    expect(editorLinux(conPath('code', 'cursor'))).toBe('/x/cursor');
-    expect(editorLinux(conPath('code'))).toBe('/x/code');
-    expect(editorLinux(nada)).toBeNull();
+  it('Linux: zeditor, luego zed (solo el de Zed), cursor y code', () => {
+    expect(EDITORES_LINUX).toEqual(['zeditor', 'zed', 'cursor', 'code']);
+    expect(editorLinux({ buscar: conPath('code', 'cursor', 'zeditor', 'zed'), ...zedOficial })).toBe('/x/zeditor');
+    expect(editorLinux({ buscar: conPath('code', 'cursor', 'zed'), ...zedOficial })).toBe('/x/zed');
+    expect(editorLinux({ buscar: conPath('code', 'cursor') })).toBe('/x/cursor');
+    expect(editorLinux({ buscar: conPath('code') })).toBe('/x/code');
+    expect(editorLinux({ buscar: nada })).toBeNull();
+  });
+  it('Linux: el zed del demonio de ZFS nunca se lanza como editor', () => {
+    expect(editorLinux({ buscar: conPath('code', 'cursor', 'zed'), ...zedDeZfs })).toBe('/x/cursor');
+    expect(editorLinux({ buscar: conPath('code', 'zed'), ...zedDeZfs })).toBe('/x/code');
+    expect(editorLinux({ buscar: conPath('zed'), ...zedDeZfs })).toBeNull();
+    // si no se puede resolver el enlace, tampoco
+    expect(editorLinux({ buscar: conPath('zed'), real: () => { throw new Error('ENOENT'); }, existe: () => true })).toBeNull();
+    expect(ordenesEditor('/r/a.ts', { carpeta: false }, 'linux', { buscar: conPath('zed'), ...zedDeZfs })[0].bin).toBe('dbus-send');
   });
   it('Linux con editor: el archivo o la carpeta en el editor', () => {
     const o = { buscar: conPath('code') };
@@ -106,6 +120,22 @@ describe('adjuntos', () => {
   });
 });
 
+describe('extensiones de texto', () => {
+  const editor = { buscar: conPath('code') };
+  it('macOS: los scripts de shell también son texto de adjunto', () => {
+    for (const f of ['/a/f.sh', '/a/f.zsh', '/a/f.tsx', '/a/f.mjs', '/a/f.yml', '/a/f.htm', '/a/f.patch']) expect(ordenesAdjunto(f, { carpeta: false }, 'darwin')).toEqual([{ bin: 'open', args: ['-t', f] }]);
+    for (const f of ['/a/f.docx', '/a/f.desktop', '/a/f.shx']) expect(ordenesAdjunto(f, { carpeta: false }, 'darwin')[0].args[0]).toBe('-R');
+  });
+  it('Linux: el mismo texto de adjunto salvo los scripts de shell', () => {
+    for (const f of ['/a/f.ts', '/a/f.cts', '/a/f.yaml', '/a/f.html', '/a/f.sql', '/a/f.diff']) expect(ordenesAdjunto(f, { carpeta: false }, 'linux', editor)).toEqual([{ bin: '/x/code', args: [f] }]);
+    for (const f of ['/a/f.sh', '/a/f.zsh', '/a/f.SH']) expect(ordenesAdjunto(f, { carpeta: false }, 'linux', editor)[0].bin).toBe('dbus-send');
+  });
+  it('Linux sin editor: a xdg-open solo el texto plano, nunca código ni html', () => {
+    for (const f of ['/a/f.txt', '/a/f.yml', '/a/f.jsonl', '/a/f.conf', '/a/f.patch']) expect(ordenesEditor(f, { carpeta: false }, 'linux', { buscar: nada })).toEqual([{ bin: 'xdg-open', args: [f] }]);
+    for (const f of ['/a/f.html', '/a/f.js', '/a/f.xml', '/a/f.sh', '/a/f.py']) expect(ordenesEditor(f, { carpeta: false }, 'linux', { buscar: nada })[0].bin).toBe('dbus-send');
+  });
+});
+
 describe('papelera', () => {
   it('macOS: /usr/bin/trash o, si no está, el Finder', () => {
     expect(ordenPapelera(['/a', '/b'], 'darwin', { existe: () => true })).toEqual({ bin: '/usr/bin/trash', args: ['/a', '/b'] });
@@ -140,7 +170,8 @@ describe('abrir una carpeta de sala (Finder, Terminal, editor)', () => {
   });
   it('Linux: el gestor de archivos con xdg-open y el editor si lo hay (si no, la carpeta)', () => {
     expect(ordenesAbrirEn('finder', '/r', { paquete: false }, 'linux')).toEqual([{ bin: 'xdg-open', args: ['/r'] }]);
-    expect(ordenesAbrirEn('editor', '/r', { paquete: false }, 'linux', { buscar: conPath('zed') })).toEqual([{ bin: '/x/zed', args: ['/r'] }]);
+    expect(ordenesAbrirEn('editor', '/r', { paquete: false }, 'linux', { buscar: conPath('zeditor') })).toEqual([{ bin: '/x/zeditor', args: ['/r'] }]);
+    expect(ordenesAbrirEn('editor', '/r', { paquete: false }, 'linux', { buscar: conPath('zed'), ...zedDeZfs })).toEqual([{ bin: 'xdg-open', args: ['/r'] }]);
     expect(ordenesAbrirEn('editor', '/r', { paquete: false }, 'linux', { buscar: nada })).toEqual([{ bin: 'xdg-open', args: ['/r'] }]);
   });
 });
@@ -162,5 +193,36 @@ describe('shell y sockets', () => {
     expect(carpetaSockets('linux', { XDG_RUNTIME_DIR: 'run/user' }, () => true)).toBe(os.tmpdir());
     expect(carpetaSockets('linux', {}, () => true)).toBe(os.tmpdir());
     expect(carpetaSockets('darwin', { XDG_RUNTIME_DIR: '/run/user/1000' }, () => true)).toBe(os.tmpdir());
+  });
+});
+
+describe('lanzar con respaldo', () => {
+  const a: Orden = { bin: 'a', args: ['1'] }, b: Orden = { bin: 'b', args: ['2'], cwd: '/r' };
+  // un lanzador falso: esperar responde al momento con el resultado indicado por programa
+  const falso = (falla: string[] = []) => ({
+    esperar: vi.fn((o: Orden, cb: (err: Error | null) => void) => cb(falla.includes(o.bin) ? new Error('falló') : null)),
+    soltar: vi.fn((_o: Orden) => {}),
+  });
+  it('si la primera falla, se lanza la siguiente', () => {
+    const l = falso(['a']);
+    lanzar([a, b], l);
+    expect(l.esperar).toHaveBeenCalledWith(a, expect.any(Function));
+    expect(l.soltar).toHaveBeenCalledExactlyOnceWith(b);
+  });
+  it('si la primera sale bien, el respaldo no se toca', () => {
+    const l = falso();
+    lanzar([a, b], l);
+    expect(l.esperar).toHaveBeenCalledOnce();
+    expect(l.soltar).not.toHaveBeenCalled();
+  });
+  it('una sola orden se suelta sin esperar; sin órdenes, nada', () => {
+    const l = falso();
+    lanzar([a], l);
+    expect(l.soltar).toHaveBeenCalledExactlyOnceWith(a);
+    expect(l.esperar).not.toHaveBeenCalled();
+    const vacio = falso();
+    lanzar([], vacio);
+    expect(vacio.esperar).not.toHaveBeenCalled();
+    expect(vacio.soltar).not.toHaveBeenCalled();
   });
 });
