@@ -38,7 +38,8 @@ async function medir() {
   const s = await servidor();
   let app;
   try {
-    app = await _electron.launch({ executablePath: electron, args: [...chromium, 'electron/main.cjs'], env: { ...process.env, SHELTER_URL: s.url } });
+    // su propio perfil: con el juego abierto, la instancia única no le entrega la medición
+    app = await _electron.launch({ executablePath: electron, args: [...chromium, `--user-data-dir=${join(s.datos, 'electron')}`, 'electron/main.cjs'], env: { ...process.env, SHELTER_URL: s.url } });
     const pg = await app.firstWindow();
     await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
     // __noLoop tiene que existir antes de que arranque el juego: se añade y se recarga

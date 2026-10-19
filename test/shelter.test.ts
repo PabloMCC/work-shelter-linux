@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -160,23 +160,132 @@ describe('abrir_url', () => {
   });
 });
 
-describe('instalar_app_disponible (la puerta de ./shelter instalar-app)', () => {
-  it('en macOS deja pasar sin decir nada', () => {
+describe('instalar-app y desinstalar-app (sus puertas y su instalador)', () => {
+  it('instalar_app_disponible: en macOS y en Linux deja pasar sin decir nada; en otro sistema se niega', () => {
     expect(bash('instalar_app_disponible', { s: 'Darwin' })).toMatchObject({ codigo: 0, salida: '', error: '' });
+    expect(bash('instalar_app_disponible', { s: 'Linux' })).toMatchObject({ codigo: 0, salida: '', error: '' });
+    const r = bash('instalar_app_disponible', { s: 'FreeBSD' });
+    expect(r.codigo).not.toBe(0); expect(r.error).toContain('FreeBSD');
   });
-  it('en Linux sale con 1 y explica cómo abrirlo mientras tanto', () => {
-    const r = bash('instalar_app_disponible', { s: 'Linux' });
-    expect(r.codigo).toBe(1); expect(r.error).toContain('instalar-app'); expect(r.error).toContain('./shelter');
+  it('instalador_app: la app de macOS o el acceso en el menú de Linux', () => {
+    expect(bash('instalador_app', { s: 'Darwin' })).toMatchObject({ codigo: 0, salida: 'scripts/instalar-app.mjs' });
+    expect(bash('instalador_app', { s: 'Linux' })).toMatchObject({ codigo: 0, salida: 'scripts/instalar-app-linux.mjs' });
+    expect(bash('instalador_app', { s: 'FreeBSD' }).codigo).not.toBe(0);
   });
-  it('en un sistema desconocido también se niega', () => {
-    expect(bash('instalar_app_disponible', { s: 'FreeBSD' }).codigo).not.toBe(0);
+  it('desinstalar_app_disponible: solo en Linux; en macOS lo dice y sale con 1', () => {
+    expect(bash('desinstalar_app_disponible', { s: 'Linux' })).toMatchObject({ codigo: 0, salida: '', error: '' });
+    const r = bash('desinstalar_app_disponible', { s: 'Darwin' });
+    expect(r.codigo).toBe(1); expect(r.error).toMatch(/solo.*Linux/);
+    expect(bash('desinstalar_app_disponible', { s: 'FreeBSD' }).codigo).not.toBe(0);
   });
-  it('./shelter la consulta antes de preparar nada (antes de Node, dependencias y descargas)', () => {
+  it('./shelter consulta las puertas antes de preparar nada; desinstalar va tras Node y antes de las dependencias', () => {
     const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
-    const puerta = t.indexOf('instalar_app_disponible || exit 1');
-    expect(puerta).toBeGreaterThan(0);
-    for (const paso of ['# 1. Node', 'curl ', 'npm', 'install.js']) expect(puerta).toBeLessThan(t.indexOf(paso));
+    const nodo = t.indexOf('# 1. Node');
+    for (const puerta of ['instalar_app_disponible || exit 1', 'desinstalar_app_disponible || exit 1']) {
+      const i = t.indexOf(puerta);
+      expect(i, puerta).toBeGreaterThan(0);
+      for (const paso of ['# 1. Node', 'curl ', 'npm', 'install.js']) expect(i, puerta).toBeLessThan(t.indexOf(paso));
+    }
+    const quitar = t.indexOf('scripts/instalar-app-linux.mjs --desinstalar');
+    expect(quitar).toBeGreaterThan(nodo);
+    for (const paso of ['# 2. Claude', 'npm ci', 'install.js', 'descargar-assets']) expect(quitar).toBeLessThan(t.indexOf(paso));
+    expect(t).toMatch(/exec "\$NODE" "\$\(instalador_app\)" "\$@"/);
     expect(t).not.toMatch(/uname -s/);
+  });
+});
+
+describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)', () => {
+  it('manda lo que se escriba (también los errores) al shelter.log, solo legible por ti', () => {
+    const estado = path.join(dir, 'estado');
+    const r = bash('registro_desde_menu && { echo hola; echo fallo >&2; }', { real: true, env: { XDG_STATE_HOME: estado } });
+    expect(r).toMatchObject({ codigo: 0, salida: '', error: '' });
+    const log = path.join(estado, 'work-shelter-public', 'shelter.log');
+    const texto = readFileSync(log, 'utf8');
+    expect(texto).toMatch(/^== .+ ==$/m); expect(texto).toContain('hola'); expect(texto).toContain('fallo');
+    expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(path.dirname(log)).mode & 0o777).toBe(0o700);
+    bash('registro_desde_menu && echo otra', { real: true, env: { XDG_STATE_HOME: estado } });
+    expect(readFileSync(log, 'utf8')).toContain('hola');   // se añade, no se pisa
+    expect(readFileSync(log, 'utf8')).toContain('otra');
+  });
+  it('un registro que ya existía con otros permisos se cierra a 600', () => {
+    const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
+    mkdirSync(path.dirname(log), { recursive: true }); writeFileSync(log, 'viejo\n'); chmodSync(log, 0o644);
+    bash('registro_desde_menu', { real: true, env: { XDG_STATE_HOME: estado } });
+    expect(statSync(log).mode & 0o777).toBe(0o600);
+  });
+  it('si no se puede crear el registro, falla y la salida se queda donde estaba', () => {
+    const tapon = path.join(dir, 'tapon'); writeFileSync(tapon, '');   // un archivo donde tendría que ir la carpeta
+    const r = bash('registro_desde_menu || echo sigue', { real: true, env: { XDG_STATE_HOME: tapon } });
+    expect(r.salida).toBe('sigue');
+  });
+  it('./shelter lo usa con SHELTER_DESDE_MENU nada más cargar plataforma.sh, antes de preparar nada', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const i = t.indexOf('registro_desde_menu');
+    expect(i).toBeGreaterThan(t.indexOf('source scripts/plataforma.sh'));
+    expect(t.slice(t.lastIndexOf('\n', i), i)).toContain('SHELTER_DESDE_MENU');
+    for (const paso of ['# 1. Node', 'curl ', 'npm']) expect(i).toBeLessThan(t.indexOf(paso));
+  });
+});
+
+describe('tomar_cerrojo (dos arranques a la vez no preparan a la vez)', () => {
+  const cerrojo = () => path.join(dir, '.runtime', 'lanzador.lock');
+  it('dos a la vez, sin esperar: solo uno se lo queda (10 rondas)', { timeout: 20_000 }, () => {
+    for (let i = 0; i < 10; i++) {
+      rmSync(path.join(dir, '.runtime'), { recursive: true, force: true });
+      const uno = `source "${PLATAFORMA}"; tomar_cerrojo "${cerrojo()}" 0 2>/dev/null && { echo dentro; sleep 0.1; }`;
+      const r = bash(`for q in A B; do bash -c '${uno}' & done; wait`, { real: true });
+      expect(r.salida.split('\n').filter(Boolean)).toHaveLength(1);
+    }
+  });
+  it('el segundo espera a que el primero lo suelte y entonces se lo queda', () => {
+    const r = bash(`( tomar_cerrojo "${cerrojo()}" && { echo "A dentro"; sleep 1; echo "A fuera"; soltar_cerrojo; } ) &
+      sleep 0.3; tomar_cerrojo "${cerrojo()}" 10 && echo "B dentro"; wait`, { real: true });
+    expect(r.salida.split('\n')).toEqual(['A dentro', 'A fuera', 'B dentro']);
+    expect(r.error).toContain('Otro arranque de work-shelter está preparándolo');
+    expect(r.error.match(/espero/g)).toHaveLength(1);   // avisa una sola vez
+  });
+  it('con el dueño muerto, se recupera', () => {
+    const muerto = spawnSync('true').pid!;
+    mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), `${muerto}\n`);
+    const r = bash(`tomar_cerrojo "${cerrojo()}" 2 && cat "${path.join(cerrojo(), 'pid')}" && echo "$$"`, { real: true });
+    const [pid, propio] = r.salida.split('\n');
+    expect(r.codigo).toBe(0); expect(pid).toBe(propio); expect(existsSync(`${cerrojo()}.romper`)).toBe(false);
+  });
+  it('dos procesos a la vez ante un cerrojo de un dueño muerto: solo uno lo recupera (10 rondas)', { timeout: 20_000 }, () => {
+    const muerto = spawnSync('true').pid!;
+    for (let i = 0; i < 10; i++) {
+      rmSync(path.join(dir, '.runtime'), { recursive: true, force: true });
+      mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), `${muerto}\n`);
+      const uno = `source "${PLATAFORMA}"; tomar_cerrojo "${cerrojo()}" 0 2>/dev/null && { echo dentro; sleep 0.2; }`;
+      const r = bash(`for q in A B; do bash -c '${uno}' & done; wait`, { real: true });
+      expect(r.salida.split('\n').filter(Boolean)).toEqual(['dentro']);
+      expect(existsSync(`${cerrojo()}.romper`)).toBe(false);
+    }
+  });
+  it('con el dueño vivo, espera, se rinde con un mensaje claro y no le quita el cerrojo', () => {
+    mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), `${process.pid}\n`);
+    const inicio = Date.now();
+    const r = bash(`tomar_cerrojo "${cerrojo()}" 1`, { real: true });
+    expect(r.codigo).toBe(1); expect(Date.now() - inicio).toBeGreaterThanOrEqual(900);
+    expect(r.error).toContain(`Otro arranque de work-shelter (pid ${process.pid}) sigue preparándolo`);
+    expect(readFileSync(path.join(cerrojo(), 'pid'), 'utf8').trim()).toBe(String(process.pid));
+  });
+  it('soltar_cerrojo solo quita el suyo', () => {
+    mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), `${process.pid}\n`);
+    bash(`CERROJO_LANZADOR="${cerrojo()}"; soltar_cerrojo`, { real: true });
+    expect(existsSync(cerrojo())).toBe(true);
+    expect(bash(`tomar_cerrojo "${cerrojo()}" 0 2>/dev/null || exit 9`, { real: true }).codigo).toBe(9);
+    rmSync(cerrojo(), { recursive: true });
+    expect(bash(`tomar_cerrojo "${cerrojo()}" 0 && soltar_cerrojo && [ ! -e "${cerrojo()}" ]`, { real: true }).codigo).toBe(0);
+  });
+  it('./shelter lo toma antes de preparar nada, lo suelta antes de cada exec y cuando el servidor contesta', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const toma = t.indexOf('tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"');
+    expect(toma).toBeGreaterThan(t.indexOf("trap 'soltar_cerrojo' EXIT"));
+    for (const paso of ['# 1. Node', 'curl -fL', 'npm ci', 'install.js']) expect(toma).toBeLessThan(t.indexOf(paso));
+    for (const l of t.split('\n').filter(l => /\bexec "\$NODE"/.test(l))) expect(l, l).toContain('soltar_cerrojo; exec');
+    expect(t.indexOf('soltar_cerrojo   # el servidor ya contesta')).toBeGreaterThan(t.indexOf('URL="http://127.0.0.1:$PUERTO/#t='));
+    expect(t).toContain('traigo su ventana al frente');
   });
 });
 

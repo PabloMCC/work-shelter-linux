@@ -85,8 +85,8 @@ Y en Linux, de momento:
 - **Solo en macOS por ahora**: salir a la superficie, el dictado por voz y Spotify en la Discoteca. En Linux se ven
   apagados y, al pulsarlos, avisan de que aún no están; el resto del juego no depende de ellos. La tecla de pánico
   (Mayús+Alt+Ctrl+Esc) solo esconde la ventana del juego.
-- **Sin acceso en el menú de aplicaciones** todavía: `./shelter instalar-app` lo dice y sale sin tocar nada. El juego
-  se abre con `./shelter` desde una terminal en su carpeta.
+- **El acceso en el menú de aplicaciones** (`./shelter instalar-app`) sigue las especificaciones de freedesktop y pasa
+  `desktop-file-validate`, pero aún no se ha probado a mano en un escritorio (KDE, GNOME…).
 - **Probado de punta a punta en un escritorio Arch** (CachyOS, KDE Plasma sobre Wayland, gráfica NVIDIA). Las pruebas
   automáticas pasan en Ubuntu y en macOS, pero el juego aún no se ha probado entero en un escritorio Ubuntu o Fedora:
   debería ir, sin garantía.
@@ -153,12 +153,19 @@ git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd 
 La primera vez tarda unos minutos: usa tu Node 22 o, si no hay, descarga el oficial y comprueba su suma; instala las
 dependencias (`npm ci`) y la ventana del juego (Electron); descarga el material artístico CC0 y compila la interfaz.
 Las siguientes, abre en segundos. Todo queda dentro de la carpeta del juego y de las de datos (ver [Datos](#datos)):
-no pide contraseña ni instala nada en el sistema. Aún no hay acceso en el menú de aplicaciones: se abre siempre con
-`./shelter` desde esa carpeta.
+no pide contraseña ni instala nada en el sistema.
+
+**Acceso en el menú:** `./shelter instalar-app` prepara lo mismo que el arranque y añade work-shelter al menú de
+aplicaciones (en Desarrollo), con su icono, solo para tu usuario y sin sudo: una entrada en
+`${XDG_DATA_HOME:-~/.local/share}/applications/work-shelter-public.desktop` y el icono en
+`icons/hicolor/<tamaño>/apps/` de esa misma carpeta. Abre `./shelter` de esta carpeta sin terminal: lo que escribiría
+va a `shelter.log`, en `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/`. Si ya está abierto, trae su ventana al
+frente; dos clics seguidos no lo preparan dos veces. Si mueves la carpeta del juego, repítelo. Para quitarlo:
+`./shelter desinstalar-app` (borra solo esa entrada y sus iconos).
 
 **Poner al día:** `git pull` en la carpeta y `./shelter` (si cambian las dependencias, las reinstala solo).
 
-**Desinstalar:** borra la carpeta del juego (con ella, el estado del refugio), `~/.local/share/work-shelter-public`
+**Desinstalar:** `./shelter desinstalar-app` si pusiste el acceso en el menú; luego borra la carpeta del juego (con ella, el estado del refugio), `~/.local/share/work-shelter-public`
 (repos de ejemplo y carpetas de las salas especiales), `~/.config/work-shelter-public` (sesiones de los navegadores)
 y `~/.local/state/work-shelter-public` (registro de la ventana); si tienes puestas las variables `XDG_DATA_HOME`,
 `XDG_CONFIG_HOME` o `XDG_STATE_HOME`, están ahí en vez de en `~/.local/share`, `~/.config` y `~/.local/state`. Las
@@ -207,7 +214,7 @@ Si vas a cambiar el juego, puedes tenerlo donde quieras (en Linux es la instalac
 ```bash
 git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd work-shelter
 ./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
-./shelter instalar-app    # solo macOS: crea la app de Aplicaciones apuntando a esta carpeta (--sin-dock para no tocar el Dock)
+./shelter instalar-app    # macOS: la app de Aplicaciones (--sin-dock para no tocar el Dock); Linux: el acceso en el menú
 ```
 
 Si la ventana del juego no llega a abrirse, `./shelter` abre el juego en tu navegador y te dice dónde está el
@@ -426,8 +433,8 @@ son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de C
   aislamiento (sandbox), lo dice también: pasa, por ejemplo, en Ubuntu 23.10 y posteriores, que con AppArmor limitan
   los espacios de nombres de usuario. `./shelter doctor` lo comprueba y da la solución segura: el ayudante
   `chrome-sandbox` de Electron, de root y con modo 4755 (tu usuario no puede crear un archivo SUID de root, por eso
-  nada tuyo puede aprovecharlo). Hay que repetirlo cada vez que se reinstala Electron. Mientras tanto el juego funciona
-  igual en el navegador. No arranques Electron con `--no-sandbox`.
+  nada tuyo puede aprovecharlo). Hay que repetirlo cada vez que se reinstala Electron. Hasta que lo arregles, el juego
+  se abre en el navegador y funciona igual. No arranques Electron con `--no-sandbox`.
 - **«Sin gráficos 3D».** El equipo no da WebGL2 al juego: faltan o están anticuados los controladores de la gráfica,
   la aceleración por hardware está apagada, o es una máquina virtual o un escritorio remoto. La pantalla dice qué
   hacer.

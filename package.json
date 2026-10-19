@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "work-shelter: refugio subterráneo jugable que es la interfaz de trabajo sobre Claude Code",
+  "desktopName": "work-shelter-public.desktop",
   "type": "module",
   "engines": {
     "node": ">=22"

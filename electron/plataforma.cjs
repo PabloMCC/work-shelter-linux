@@ -74,4 +74,17 @@ function esEnlaceExterno(u) {
   try { return EXTERNOS.includes(new URL(u).protocol); } catch { return false; }
 }
 
-module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };
+// la identidad de la ventana en Linux: el nombre del .desktop del menú (scripts/instalar-app-linux.mjs y `desktopName` de
+// package.json). Electron lo usa como app_id en Wayland y como WM_CLASS en X11, y así el escritorio le pone su icono y la
+// agrupa con su entrada. Lanzado como `electron electron/main.cjs` no lee el package.json del repo (se quedaría con el
+// de Electron), así que main.cjs lo fija. En macOS no hace falta: la identidad la da la app
+const nombreEscritorio = (plataforma = process.platform) => (plataforma === 'linux' ? `${NOMBRE}.desktop` : null);
+
+// otro arranque (./shelter con el servidor ya abierto) pasa su dirección a la ventana que ya está: solo se acepta la del
+// servidor local del juego (http://127.0.0.1:<puerto>/)
+function urlDelServidorLocal(u) {
+  if (typeof u !== 'string') return false;
+  try { const x = new URL(u); return x.protocol === 'http:' && x.hostname === '127.0.0.1' && x.pathname === '/'; } catch { return false; }
+}
+
+module.exports = { nombreEscritorio, urlDelServidorLocal, carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };
