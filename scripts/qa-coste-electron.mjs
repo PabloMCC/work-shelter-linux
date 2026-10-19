@@ -36,8 +36,9 @@ async function servidor() {
 
 async function medir() {
   const s = await servidor();
-  const app = await _electron.launch({ executablePath: electron, args: [...chromium, 'electron/main.cjs'], env: { ...process.env, SHELTER_URL: s.url } });
+  let app;
   try {
+    app = await _electron.launch({ executablePath: electron, args: [...chromium, 'electron/main.cjs'], env: { ...process.env, SHELTER_URL: s.url } });
     const pg = await app.firstWindow();
     await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h]);
     // __noLoop tiene que existir antes de que arranque el juego: se añade y se recarga
@@ -72,7 +73,8 @@ async function medir() {
     });
     return { ...r, ventana: `${w}x${h}`, angle: angle ?? 'por defecto', estadoGpu: gpu };
   } finally {
-    await app.close();
+    // también si Electron no ha llegado a arrancar: que no quede el servidor vivo ocupando el puerto
+    await app?.close().catch(() => {});
     // la ventana, al cerrarse, ya pide al servidor que se apague: solo se espera si aún sigue vivo
     if (s.p.exitCode === null && s.p.signalCode === null) { s.p.kill('SIGINT'); await new Promise(r => s.p.once('exit', r)); }
     rmSync(s.datos, { recursive: true, force: true });
