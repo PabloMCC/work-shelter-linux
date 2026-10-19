@@ -134,40 +134,26 @@ dueno_y_modo() {
   echo "$3 ${1:0:10}"
 }
 
-# Sin los espacios en blanco del principio
-sin_sangria() { printf '%s' "${1#"${1%%[![:space:]]*}"}"; }
-
-# ¿Empieza esta línea por la ruta exacta del perfil (con o sin comillas), seguida de un espacio, de su `{` o de nada?
-cabecera_de() {
-  local t="$1" r="$2" q="\"$2\""
-  case "$t" in "$r" | "$r"[[:space:]{]* | "$q" | "$q"[[:space:]{]*) return 0 ;; esac
-  return 1
-}
-
-# ¿Hay en /etc/apparmor.d un perfil para este binario exacto que permita userns? La ruta tiene que ser la del perfil
-# (`<ruta> {`, `"<ruta>" flags=… {` o `profile <nombre> <ruta> {`) y `userns,` estar dentro de su bloque
+# ¿Hay en /etc/apparmor.d un perfil para este binario exacto que permita userns? Es una heurística para un aviso
+# informativo (ya no se recomienda ningún perfil), no un intérprete de AppArmor: cada archivo de primer nivel se lee una
+# sola vez, sin un subshell por línea, y cuenta si nombra la ruta exacta como la de un perfil (entre comillas, o sin ellas
+# y seguida de un espacio o de su `{`, como en `<ruta> flags=… {` o `profile <nombre> <ruta> {`) y tiene una regla
+# userns sin comentar al principio de una línea (`userns,`, `allow userns,` o `userns create,`). No mira en qué bloque está
 perfil_apparmor_para() {
-  local f linea t dentro
+  local f c ruta="$1" n=$'\n'
+  local regla=$'\n[ \t]*(allow[ \t]+)?userns([ \t]+create)?[ \t]*,'
   for f in "${DOCTOR_RAIZ:-}"/etc/apparmor.d/*; do
     [ -f "$f" ] || continue
-    dentro=0
-    while IFS= read -r linea || [ -n "$linea" ]; do
-      t="$(sin_sangria "$linea")"
-      if [ "$dentro" = 1 ]; then
-        case "$t" in "}"*) dentro=0 ;; "userns,"* | "allow userns,"*) return 0 ;; esac
-        continue
-      fi
-      case "$t" in "profile "*)
-        t="$(sin_sangria "${t#profile }")"
-        cabecera_de "$t" "$1" || t="$(sin_sangria "${t#*[[:space:]]}")" ;;
-      esac
-      cabecera_de "$t" "$1" && dentro=1
-    done < "$f"
+    c=""; IFS= read -r -d '' c < "$f" || true
+    c="$n$c$n"
+    case "$c" in *[[:space:]]"$ruta"[[:space:]{]* | *\""$ruta"\"*) ;; *) continue ;; esac
+    [[ $c =~ $regla ]] && return 0
   done
   return 1
 }
 
-# ¿Puede tu usuario cambiar este archivo (o la carpeta en la que está o estará)?
+# ¿Puede tu usuario cambiar este archivo (o la carpeta en la que está o estará)? Las pruebas la redefinen tras cargar
+# este script (como dueno_y_modo) para simular un binario de root
 escribible() {
   local p="$1"
   [ -w "$p" ] && return 0

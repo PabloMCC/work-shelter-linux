@@ -10,9 +10,9 @@ import path from 'node:path';
 import WebSocket from 'ws';
 import { AVISOS_CAPACIDAD, capacidadesDe } from '../shared/protocolo.ts';
 
-// los tests del servidor corren a la vez, cada archivo en su rango (servidor.test.ts 3700, caracterizacion-servidor.test.ts
-// 3800): este usa 3900 a 3959, la primera mitad para el servidor común y la segunda (PUERTO + RANGO_PUERTOS) para el que
-// se cae sin clientes, así los dos nunca chocan
+// los tests del servidor corren a la vez y cada archivo usa su propio rango de puertos, que no comparte con ningún otro.
+// Este usa 3900 a 3959: la primera mitad para el servidor común y la segunda (PUERTO + RANGO_PUERTOS) para el que se cae
+// sin clientes, así los dos nunca chocan
 const RANGO_PUERTOS = 30;
 const PUERTO = 3900 + Math.floor(Math.random() * RANGO_PUERTOS);
 const DATOS = mkdtempSync(path.join(tmpdir(), 'refugio-capac-'));

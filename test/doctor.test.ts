@@ -202,11 +202,35 @@ describe('comprobar_sandbox (el aislamiento de la ventana)', () => {
     perfil('chrome', `${electron}2 flags=(unconfined) {\n  userns,\n}\n`);
     expect(sandbox().salida).toContain('faltan=1');
   });
-  it('la ruta exacta sin userns en su bloque no cuenta (aunque otro perfil del archivo lo tenga)', () => {
+  it('la ruta exacta sin ninguna regla userns (solo comentada) no cuenta', () => {
     sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
     const electron = path.join(dist, 'electron');
-    perfil('mezcla', `"${electron}" {\n  # userns, comentado\n}\n/opt/otro {\n  userns,\n}\n# ${electron} userns,\n`);
+    perfil('mezcla', `"${electron}" {\n  # userns, comentado\n  /usr/** r,\n}\n# ${electron} userns\n`);
     expect(sandbox().salida).toContain('faltan=1');
+  });
+  it('un perfil con bloques anidados y `userns create,` cuenta', () => {
+    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
+    const electron = path.join(dist, 'electron');
+    perfil('anidado', `profile shelter ${electron} flags=(unconfined) {\n  ^hijo {\n    /usr/** r,\n  }\n  allow userns create,\n}\n`);
+    expect(sandbox().salida).toContain('faltan=0');
+    perfil('anidado', `${electron} {\n  owner /tmp/** rw,\n  userns create,\n}\n`);
+    expect(sandbox().salida).toContain('faltan=0');
+  });
+  it('recorre un /etc/apparmor.d grande sin tardar (lee cada archivo una sola vez)', () => {
+    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
+    const relleno = Array.from({ length: 80 }, (_, i) => `  /usr/lib/cosa${i}/** r,`).join('\n');
+    for (let i = 0; i < 300; i++) perfil(`otro-${i}`, `/opt/app${i}/bin/app {\n${relleno}\n  userns,\n}\n`);
+    const inicio = Date.now();
+    expect(sandbox().salida).toContain('faltan=1');
+    expect(Date.now() - inicio).toBeLessThan(3000);
+  });
+  it('con el binario de root (no escribible): perfil válido y sin el aviso de que debilita la restricción', () => {
+    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
+    const electron = path.join(dist, 'electron');
+    perfil('shelter', `"${electron}" flags=(unconfined) {\n  userns,\n}\n`);
+    const r = sandbox('escribible() { return 1; }');
+    expect(r.salida).toMatch(/✓.*perfil/); expect(r.salida).toContain('faltan=0');
+    expect(r.salida).not.toMatch(/debilita la restricción/); expect(r.salida).not.toContain('sudo chmod 4755');
   });
 });
 
