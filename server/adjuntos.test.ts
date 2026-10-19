@@ -1,13 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { Adjuntos, textoConAdjuntos, separarAdjuntos, nombreAdjunto, CABECERA } from './adjuntos.ts';
 
 let datos: string, adj: Adjuntos;
 beforeAll(() => { datos = mkdtempSync(path.join(os.tmpdir(), 'shelter-adj-')); adj = new Adjuntos(datos); });
 afterAll(() => rmSync(datos, { recursive: true, force: true }));
+
+// Las imágenes se preparan con /usr/bin/sips, que solo existe en macOS: donde no está, sus tests se saltan
+const haySips = existsSync('/usr/bin/sips');
 
 // PNG de 1×1 transparente
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -33,17 +36,29 @@ describe('adjuntos del intercomunicador', () => {
     expect(separarAdjuntos(`habla de ${CABECERA} sin lista`).adjuntos).toEqual([]);
   });
 
-  it('las imágenes van dentro del mensaje y el resto, por su ruta', async () => {
+  it('lo que no es imagen va por su ruta, al final del texto', async () => {
+    const doc = adj.guardar('b.txt', Buffer.from('hola').toString('base64'));
+    expect(await adj.contenido('lee esto', adj.describir([doc]))).toEqual([{ type: 'text', text: `lee esto\n\n${CABECERA}\n- ${doc}` }]);
+    expect(await adj.contenido('solo texto', [])).toBe('solo texto');
+  });
+
+  it.runIf(haySips)('las imágenes van dentro del mensaje y además por su ruta', async () => {
     const img = adj.guardar('a.png', PNG), doc = adj.guardar('b.txt', Buffer.from('hola').toString('base64'));
     const c = await adj.contenido('¿qué ves?', adj.describir([img, doc])) as any[];
     expect(c[0]).toEqual({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG } });
     expect(c[1].type).toBe('text');
     expect(c[1].text).toContain(`- ${img} (imagen, incluida en este mensaje)`);
     expect(c[1].text).toContain(`- ${doc}`);
-    expect(await adj.contenido('solo texto', [])).toBe('solo texto');
   });
 
-  it.runIf(process.platform === 'darwin')('las imágenes grandes se reducen antes de mandarlas', async () => {
+  // Comportamiento actual sin sips. Cuando las imágenes se preparen también en Linux, este test fallará: es la
+  // señal para quitarlo y dejar que los de imágenes corran en todos los sistemas.
+  it.skipIf(haySips)('sin sips, la imagen va solo por su ruta', async () => {
+    const img = adj.guardar('c.png', PNG);
+    expect(await adj.contenido('¿qué ves?', adj.describir([img]))).toEqual([{ type: 'text', text: `¿qué ves?\n\n${CABECERA}\n- ${img}` }]);
+  });
+
+  it.runIf(haySips)('las imágenes grandes se reducen antes de mandarlas', async () => {
     const tmp = mkdtempSync(path.join(os.tmpdir(), 'shelter-adj-img-'));
     try {
       const base = path.join(tmp, 'base.png'), chica = path.join(tmp, 'p.png');
