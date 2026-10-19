@@ -32,7 +32,7 @@ import { CMD, siguienteZ, atajoVentana, BotonesVentana, Pestanas, Confirmacion }
 import { CTRL } from './teclas';
 import { duenoSesion, interlocutor, rotuloRama } from './copias';
 import { sacarASuperficie } from './superficie';
-import { avisoCapacidad, useDisponible } from './capacidades';
+import { avisoCapacidad, disponible, useDisponible } from './capacidades';
 import { type AdjuntoLocal, subirArchivos, elegirArchivos, subiendo, rutasListas, BandejaAdjuntos, AdjuntosEnviados, useDictado, BotonesEntrada, TiraDictado, atajoAdjuntar } from './entrada';
 
 type Vista = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: ElementoHistorial } | { tipo: 'historial' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -589,7 +589,7 @@ function Nuevo({ h, p, reanudar, volver }: { h: ResumenHabitante; p: PestanaCom;
       <div className="formulario-escribir">
         <div className={'linea-entrada' + (fila === 0 ? ' activa' : '')}>
           <span className="prompt-sim">&gt;</span>
-          <textarea ref={area} value={texto} rows={3} readOnly={dictado.activo} placeholder={reanudar ? 'Opcional: añade una instrucción, o Enter para retomar sin más' : 'Describe el trabajo, como en la terminal de Claude Code (o díctalo con ⌘D)'}
+          <textarea ref={area} value={texto} rows={3} readOnly={dictado.activo} placeholder={reanudar ? 'Opcional: añade una instrucción, o Enter para retomar sin más' : `Describe el trabajo, como en la terminal de Claude Code${disponible('dictado') ? ` (o díctalo con ${CTRL}D)` : ''}`}
             onFocus={() => setFila(0)}
             onChange={e => { setTexto(e.target.value); }}
             onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); adjuntar(h.id, p.id, e.clipboardData.files); } }}
@@ -704,7 +704,7 @@ function Sesion({ h, s, p, salir, alCerrar }: { h: ResumenHabitante; s: ResumenS
         <div className="linea-entrada activa">
           {sugerencias.length > 0 && <ul className="sugerencias">{sugerencias.map((c, k) => <li key={c.nombre} className={k === selCmd ? 'activa' : ''} onMouseDown={ev => { ev.preventDefault(); setTexto('/' + c.nombre + ' '); }}><b>/{c.nombre}</b> <span>{c.descripcion}</span></li>)}</ul>}
           <span className="prompt-sim">&gt;</span>
-          <textarea ref={area} value={texto} rows={2} readOnly={dictado.activo} placeholder={vivaTrabajando ? 'Añade algo mientras trabaja · /btw pregunta lateral · /stop parar' : 'Responde, dicta con ⌘D, o escribe / para ver comandos'}
+          <textarea ref={area} value={texto} rows={2} readOnly={dictado.activo} placeholder={vivaTrabajando ? 'Añade algo mientras trabaja · /btw pregunta lateral · /stop parar' : (disponible('dictado') ? `Responde, dicta con ${CTRL}D, o escribe / para ver comandos` : 'Responde o escribe / para ver comandos')}
             onChange={e => { setTexto(e.target.value); setSelCmd(0); }}
             onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); adjuntar(h.id, p.id, e.clipboardData.files); } }}
             onKeyDown={e => {

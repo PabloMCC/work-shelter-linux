@@ -714,7 +714,7 @@ function Bienvenida({ raiz, cargado }: { raiz: string; cargado: boolean }) {
     <div className="ex-bienvenida">
       <p className="tenue">{raiz}</p>
       <dl>{t.map(([k, d]) => <React.Fragment key={k}><dt><kbd>{k}</kbd></dt><dd>{d}</dd></React.Fragment>)}</dl>
-      <p className="tenue">{cargado ? 'Dentro del editor, las teclas de siempre de Cursor y VS Code: ⌘D, ⌥↑↓, ⌘/, ⌘F, ⌥⌘F, ⌘⇧K, ⌃G…' : 'Cargando el editor…'}</p>
+      <p className="tenue">{cargado ? `Dentro del editor, las teclas de siempre de Cursor y VS Code: ${MAC ? '⌘D, ⌥↑↓, ⌘/, ⌘F, ⌥⌘F, ⌘⇧K, ⌃G' : 'Ctrl+D, Alt+↑↓, Ctrl+/, Ctrl+F, Ctrl+H, Ctrl+Mayús+K, Ctrl+G'}…` : 'Cargando el editor…'}</p>
     </div>
   );
 }
