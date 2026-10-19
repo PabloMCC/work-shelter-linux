@@ -41,7 +41,7 @@ const RAIZ = path.resolve(import.meta.dirname, '..');
 const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);
 const WEB = path.join(RAIZ, 'dist', 'web');
 const ASSETS = path.join(RAIZ, 'assets');
-const GRACIA_MS = 20_000;
+const GRACIA_MS = Number(process.env.SHELTER_GRACIA_MS) || 20_000;   // margen sin clientes antes de parar lo abierto (más corto en las pruebas)
 // huellas del código (scripts/huellas.cjs): /salud dice la de este servidor para que ./shelter sepa si es de antes de
 // los últimos cambios, y el reinicio las usa para recompilar el cliente o volver a abrir la app entera si hace falta
 const huellas = createRequire(import.meta.url)('../scripts/huellas.cjs') as { huella(grupo: 'cliente' | 'servidor' | 'app'): string; clienteAlDia(): boolean };
