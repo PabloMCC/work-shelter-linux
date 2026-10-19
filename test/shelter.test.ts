@@ -32,7 +32,8 @@ const bash = (orden: string, o: { s?: string; m?: string; real?: boolean; entrad
   unameFalso();
   const r = spawnSync('/bin/bash', ['-c', `source "${PLATAFORMA}"; ${orden}`], {
     encoding: 'utf8', input: o.entrada ?? '',
-    env: { PATH: o.real ? `${process.env.PATH}` : dir, REG: reg, FALSO_S: o.s ?? 'Linux', FALSO_M: o.m ?? 'x86_64', ...o.env },
+    // con HOME: en los runners de macOS, sin él, el entorno de Homebrew escribe un error en stderr
+    env: { PATH: o.real ? `${process.env.PATH}` : dir, HOME: dir, REG: reg, FALSO_S: o.s ?? 'Linux', FALSO_M: o.m ?? 'x86_64', ...o.env },
   });
   return { codigo: r.status, salida: r.stdout.trim(), error: r.stderr.trim() };
 };
