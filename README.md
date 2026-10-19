@@ -12,16 +12,18 @@ Tú eres el Supervisor: recorres pasillos y ascensores, hablas con los habitante
 y lees el correo, los chats y el calendario sin salir del refugio.
 
 > **Este repositorio es un fork** de [`DavidTorrijos/work-shelter-public`](https://github.com/DavidTorrijos/work-shelter-public),
-> el proyecto original (solo macOS), que añade **Linux**. El juego, su diseño y su código son obra de su autor original;
-> los créditos y las licencias de abajo siguen siendo los suyos. Lo que cambia en Linux, y lo que aún no está, se
-> explica en cada sección.
+> el proyecto original (solo macOS), que añade **Linux**. Es un fork **independiente y no oficial**, hecho al amparo
+> de su licencia MIT: su autor no participa en él ni lo respalda, así que no le escribas por nada de este fork. El
+> juego, su diseño y su código son obra suya; los créditos y las licencias de abajo siguen siendo los suyos. Lo que
+> cambia en Linux, y lo que aún no está, se explica en cada sección.
 
 > *English summary:* work-shelter is a Fallout-Shelter-style 3D management game (three.js + Electron) that is
 > really a UI for real Claude Code sessions: each repo is a room, each inhabitant is a Claude Code session, talking is
 > working. It runs entirely on your computer with your existing Claude Code login (no API keys, no telemetry). The game
 > and its docs are in Spanish. **It is an opinionated first proposal, not a product**: fork it and make it yours. Some
 > parts (the shooting gallery and the in-game economy) are deliberately left as an unfinished first iteration.
-> This fork adds Linux support to the original macOS-only project; on Linux, clone the repo and run `./shelter`.
+> This independent, unofficial fork adds Linux support to the original macOS-only project (its author is not involved
+> and does not endorse it); on Linux, clone the repo and run `./shelter`.
 > Install the original as a macOS app: `curl -fsSL https://raw.githubusercontent.com/DavidTorrijos/work-shelter-public/main/instalar.sh | bash`.
 
 - **Todo en tu equipo.** El servidor solo escucha en `127.0.0.1`, no hay telemetría y el juego no usa claves de API ni
@@ -53,6 +55,9 @@ pero no es un producto ni pretende serlo:
 Se publica para que lo uses y lo cambies, no como proyecto comunitario: **no leo ni acepto pull requests ni issues, y
 no hay soporte**. No es nada personal, es la única forma de compartirlo sin que se convierta en un segundo trabajo. Si
 lo mejoras, publícalo en tu fork y cuéntalo por ahí para que otros lo encuentren: será un placer que circule.
+
+> **En este fork:** lo de arriba es la política del autor original para su proyecto. La de este fork se definirá más
+> adelante; mientras tanto, no lleves al repositorio original nada que tenga que ver con este fork.
 
 ### Lo que está a medias
 
