@@ -1,0 +1,46 @@
+// Lo que la ventana (Electron) decide según el sistema, macOS o Linux: funciones puras, con la plataforma como parámetro
+// (por defecto la de este proceso) para probar las dos en cualquier equipo (test/electron-plataforma.test.ts).
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const NOMBRE = 'work-shelter-public';
+
+// los registros: ~/Library/Logs en macOS; en Linux, $XDG_STATE_HOME (~/.local/state si no está o no es absoluto)
+function carpetaRegistros(plataforma = process.platform, env = process.env, casa = os.homedir()) {
+  if (plataforma === 'darwin') return path.join(casa, 'Library/Logs', NOMBRE);
+  const xdg = env.XDG_STATE_HOME;
+  return path.join(xdg && path.isAbsolute(xdg) ? xdg : path.join(casa, '.local/state'), NOMBRE);
+}
+
+// el shell de inicio de quien usa el equipo: $SHELL, si no el de su cuenta y, si no, /bin/zsh en macOS y /bin/sh en Linux
+function shellDeUsuario(env = process.env, info = null, plataforma = process.platform) {
+  return env.SHELL || info?.shell || (plataforma === 'darwin' ? '/bin/zsh' : '/bin/sh');
+}
+
+// lo que se añade al PATH heredado: ~/.local/bin (Claude Code), en macOS las de Homebrew, y el Node portátil que descarga
+// ./shelter en .runtime/ (en Linux, solo el de Linux)
+function rutasExtra(plataforma = process.platform, casa = os.homedir(), repo, leer = fs.readdirSync) {
+  const extra = [path.join(casa, '.local/bin')];
+  if (plataforma === 'darwin') extra.push('/opt/homebrew/bin', '/usr/local/bin');
+  const propio = plataforma === 'darwin' ? n => n.startsWith('node-') : n => /^node-.*-linux-/.test(n);
+  if (repo) { const rt = path.join(repo, '.runtime'); try { extra.push(...leer(rt).filter(propio).map(n => path.join(rt, n, 'bin'))); } catch {} }
+  return extra;
+}
+
+// las teclas de ventana dentro de un navegador del refugio: con Command en macOS y con Control en Linux (sin la otra)
+function atajoWebview(plataforma = process.platform, k = {}) {
+  return plataforma === 'darwin' ? !!k.meta && !k.control : !!k.control && !k.meta;
+}
+
+// salir a la superficie: ⇧⌥⌘Esc en macOS, Mayús+Alt+Ctrl+Esc en Linux
+const PANICO = 'Shift+Alt+CommandOrControl+Escape';
+
+// fuera del juego solo se abren webs y correo: nada de file:, javascript: ni esquemas que lanzan otras apps
+const EXTERNOS = ['http:', 'https:', 'mailto:'];
+function esEnlaceExterno(u) {
+  if (typeof u !== 'string') return false;
+  try { return EXTERNOS.includes(new URL(u).protocol); } catch { return false; }
+}
+
+module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, PANICO, esEnlaceExterno };
