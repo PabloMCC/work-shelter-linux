@@ -16,6 +16,7 @@ const p = createRequire(import.meta.url)('../electron/plataforma.cjs') as {
   teclasReenviadas(entrada: Entrada): { code?: string; key?: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean };
   PANICO: string;
   panicoSacaASuperficie(plataforma: string): boolean;
+  panicoGlobal(plataforma: string): boolean;
   etiquetaPanico(plataforma: string): string;
   esEnlaceExterno(url: unknown): boolean;
   nombreEscritorio(plataforma: string): string | null;
@@ -136,6 +137,10 @@ describe('teclasReenviadas', () => {
 describe('PANICO', () => {
   it('Command en macOS (⇧⌥⌘Esc, como siempre) y Control en Linux, por CommandOrControl', () => {
     expect(p.PANICO).toBe('Shift+Alt+CommandOrControl+Escape');
+  });
+  it('solo en macOS se registra para todo el sistema; en Linux, solo dentro de la ventana (sin pedir permiso al escritorio)', () => {
+    expect(p.panicoGlobal('darwin')).toBe(true);
+    expect(p.panicoGlobal('linux')).toBe(false);
   });
 });
 

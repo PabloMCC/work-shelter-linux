@@ -62,6 +62,9 @@ const teclasReenviadas = k => ({ code: k.code, key: k.key, shiftKey: !!k.shift, 
 
 // salir a la superficie: ⇧⌥⌘Esc en macOS, Mayús+Alt+Ctrl+Esc en Linux
 const PANICO = 'Shift+Alt+CommandOrControl+Escape';
+// para todo el sistema solo en macOS: en Linux con Wayland, registrarla abre el diálogo de atajos globales del escritorio
+// sin nombre ni tecla útiles; ahí funciona dentro de la ventana (por el menú)
+const panicoGlobal = (p = process.platform) => p === 'darwin';
 // en macOS esconde el juego y saca lo abierto a la superficie (iTerm o Terminal); en Linux eso aún no está y la tecla
 // solo lo esconde (lo abierto sigue en el juego)
 const panicoSacaASuperficie = (plataforma = process.platform) => plataforma === 'darwin';
@@ -87,4 +90,4 @@ function urlDelServidorLocal(u) {
   try { const x = new URL(u); return x.protocol === 'http:' && x.hostname === '127.0.0.1' && x.pathname === '/'; } catch { return false; }
 }
 
-module.exports = { nombreEscritorio, urlDelServidorLocal, carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };
+module.exports = { nombreEscritorio, urlDelServidorLocal, carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoGlobal, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };

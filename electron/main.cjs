@@ -303,8 +303,10 @@ app.whenReady().then(cacheLimpia).then(() => {
   session.defaultSession.setPermissionRequestHandler((wc, permiso, ok, detalles) => ok(permisoDelJuego(wc, permiso, detalles?.requestingUrl ?? wc?.getURL(), detalles)));
   session.defaultSession.setPermissionCheckHandler((wc, permiso, origenPide, detalles) => permisoDelJuego(wc, permiso, origenPide || wc?.getURL(), detalles));
   crear();
-  // puede no haber atajos globales (en Wayland sin el portal de atajos globales, o la tiene otra app): queda la del menú
-  if (!globalShortcut.register(PANICO, panico)) {
+  // para todo el sistema solo donde se puede sin preguntar (plataforma.panicoGlobal); si no, o si la tiene otra app,
+  // queda la del menú, dentro de la ventana
+  if (!plataforma.panicoGlobal()) ponerMenu(true);
+  else if (!globalShortcut.register(PANICO, panico)) {
     console.error(`No he podido registrar la tecla de pánico (${PANICO}) para todo el sistema: la tiene otra app o el sistema no lo permite. Dentro de la ventana sigue funcionando.`);
     ponerMenu(true);
   }
