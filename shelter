@@ -127,9 +127,10 @@ if [ -n "${SHELTER_SIN_VENTANA:-}" ]; then
   echo "Abre: $URL"
   [ -n "$SERVIDOR_PID" ] && wait $SERVIDOR_PID
 elif [ -n "$ELECTRON" ] && [ -x "$ELECTRON" ]; then
-  # su salida, al registro (solo legible por ti, el de la última vez); si cae nada más abrir, el navegador
+  # su salida, al registro (solo legible por ti, el de la última vez); si cae nada más abrir, el navegador. Si no se
+  # puede crear la carpeta del registro, sin registro (vacío): su salida se queda en esta terminal
   LOG="$(carpeta_registros)/electron.log"
-  ( umask 077; mkdir -p "${LOG%/*}" && : > "$LOG" ) 2>/dev/null || LOG=/dev/null
+  ( umask 077; mkdir -p "${LOG%/*}" && : > "$LOG" ) 2>/dev/null || LOG=
   if ! SHELTER_URL="$URL" SHELTER_CDP="${SHELTER_CDP:-}" SHELTER_DEV="${SHELTER_DEV:-}" ventana_electron "$ELECTRON" "$LOG" electron/main.cjs; then
     amarillo "Abro work-shelter en el navegador."
     abrir_url "$URL"

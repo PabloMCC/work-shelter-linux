@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 
 const RAIZ = path.resolve(__dirname, '..');
 const PLATAFORMA = path.join(RAIZ, 'scripts', 'plataforma.sh');
@@ -190,6 +191,18 @@ describe('carpeta_registros', () => {
   });
 });
 
+describe('carpeta_registros y carpetaRegistros (electron/plataforma.cjs) dicen lo mismo', () => {
+  const js = createRequire(import.meta.url)('../electron/plataforma.cjs') as { carpetaRegistros(so: string, env: Record<string, string | undefined>, casa: string): string };
+  it('en macOS y en Linux, con XDG_STATE_HOME absoluto, relativo, vacío o sin poner', () => {
+    for (const [s, so] of [['Darwin', 'darwin'], ['Linux', 'linux']]) {
+      for (const xdg of ['/estado', 'relativa', '', undefined]) {
+        const env: Record<string, string> = { HOME: '/casa', ...(xdg === undefined ? {} : { XDG_STATE_HOME: xdg }) };
+        expect(bash('carpeta_registros', { s, env }).salida).toBe(js.carpetaRegistros(so, env, '/casa'));
+      }
+    }
+  });
+});
+
 describe('electron_binario', () => {
   const nodoFalso = (cuerpo: string) => { const f = path.join(dir, 'node'); writeFileSync(f, `#!/bin/bash\n${cuerpo}\n`); chmodSync(f, 0o755); };
   it('da la ruta que devuelve require(\'electron\')', () => {
@@ -233,6 +246,12 @@ describe('ventana_electron', () => {
   it('si cae por el aislamiento bloqueado, añade la pista sin proponer quitarlo', () => {
     const r = lanzar('echo "No usable sandbox! ... unprivileged user namespaces with AppArmor" >&2; exit 133');
     expect(r.codigo).toBe(1); expect(r.error).toMatch(/aislamiento/); expect(r.error).toMatch(/diagnóstico/); expect(r.error).not.toMatch(/no-sandbox/);
+  });
+  it('sin registro (no se pudo crear su carpeta), la salida va a la terminal y no se habla de registro ni de sandbox', () => {
+    const bin = electronFalso('echo "No usable sandbox!" >&2; exit 133');
+    const r = bash(`SHELTER_URL=http://x ventana_electron "${bin}" "" electron/main.cjs`, { real: true });
+    expect(r.codigo).toBe(1); expect(r.error).toContain('código 133'); expect(r.error).toContain('No usable sandbox!');
+    expect(r.error).not.toMatch(/Registro|\/dev\/null|aislamiento/);
   });
   it('un fallo tras usarla un rato no abre el navegador: solo avisa del registro', () => {
     const r = lanzar('exit 3', { MARGEN_ELECTRON: '0' });

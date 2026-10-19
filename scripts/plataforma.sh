@@ -88,14 +88,17 @@ electron_binario() { "$1" -p "require('electron')" 2>/dev/null || true; }
 registro_pide_sandbox() { grep -qiE 'SUID sandbox|chrome-sandbox|No usable sandbox|user namespaces' "$1" 2>/dev/null; }
 
 # Abre la ventana del juego con su salida en el registro: ventana_electron <electron> <registro> [argumentos…]. Devuelve 0
-# si se cierra bien o tras usarla un rato, y 1 si cae nada más abrir (el lanzador abre entonces el navegador)
+# si se cierra bien o tras usarla un rato, y 1 si cae nada más abrir (el lanzador abre entonces el navegador). «Nada más
+# abrir» es antes de 10 s: un fallo de arranque (sandbox, bibliotecas, pantalla) cae enseguida; más tarde, ya se ha
+# usado y abrir el navegador sería una sorpresa. MARGEN_ELECTRON=<segundos> cambia el umbral (las pruebas usan 0).
+# Con el registro vacío (no se pudo crear), la salida va a la terminal y no se habla del registro ni se busca en él
 ventana_electron() {
   local bin="$1" log="$2" inicio="$SECONDS" codigo=0; shift 2
-  "$bin" "$@" >>"$log" 2>&1 || codigo=$?
+  if [ -n "$log" ]; then "$bin" "$@" >>"$log" 2>&1 || codigo=$?; else "$bin" "$@" || codigo=$?; fi
   [ "$codigo" -eq 0 ] && return 0
-  printf 'La ventana del juego (Electron) se ha cerrado con un error (código %s). Registro: %s\n' "$codigo" "$log" >&2
+  printf 'La ventana del juego (Electron) se ha cerrado con un error (código %s).%s\n' "$codigo" "${log:+ Registro: $log}" >&2
   [ $((SECONDS - inicio)) -ge "${MARGEN_ELECTRON:-10}" ] && return 0
-  if registro_pide_sandbox "$log"; then
+  if [ -n "$log" ] && registro_pide_sandbox "$log"; then
     echo "  Este sistema no deja a Electron usar su aislamiento (sandbox), que protege del contenido web: el diagnóstico de work-shelter explica cómo permitirlo de forma segura." >&2
   fi
   return 1
