@@ -424,8 +424,10 @@ son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de C
   terminal y guarda lo que dijo Electron en `electron.log` (`~/Library/Logs/work-shelter-public/` en macOS;
   `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/` en Linux). Si el sistema no deja a Electron usar su
   aislamiento (sandbox), lo dice también: pasa, por ejemplo, en Ubuntu 23.10 y posteriores, que con AppArmor limitan
-  los espacios de nombres de usuario. El diagnóstico que explica cómo permitirlo de forma segura está por llegar;
-  mientras tanto el juego funciona igual en el navegador. No arranques Electron con `--no-sandbox`.
+  los espacios de nombres de usuario. `./shelter doctor` lo comprueba y da la solución segura: el ayudante
+  `chrome-sandbox` de Electron, de root y con modo 4755 (tu usuario no puede crear un archivo SUID de root, por eso
+  nada tuyo puede aprovecharlo). Hay que repetirlo cada vez que se reinstala Electron. Mientras tanto el juego funciona
+  igual en el navegador. No arranques Electron con `--no-sandbox`.
 - **«Sin gráficos 3D».** El equipo no da WebGL2 al juego: faltan o están anticuados los controladores de la gráfica,
   la aceleración por hardware está apagada, o es una máquina virtual o un escritorio remoto. La pantalla dice qué
   hacer.

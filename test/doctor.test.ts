@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { EDITORES_LINUX, editorLinux, ordenTerminal } from '../server/plataforma.ts';
 
 const RAIZ = path.resolve(__dirname, '..');
 const DOCTOR = path.join(RAIZ, 'scripts', 'doctor.sh');
@@ -168,28 +169,43 @@ describe('comprobar_sandbox (el aislamiento de la ventana)', () => {
     expect(r.salida).toContain(`sudo chown root:root "${path.join(dist, 'chrome-sandbox')}" && sudo chmod 4755 "${path.join(dist, 'chrome-sandbox')}"`);
     expect(r.salida).not.toMatch(/no-sandbox/);
   });
-  it('Ubuntu con la restricción de AppArmor y sin perfil: ✗ con el perfil de AppArmor para este Electron, sin --no-sandbox', () => {
+  it('Ubuntu con la restricción de AppArmor y sin perfil: ✗ con el ayudante chrome-sandbox, sin perfil ni --no-sandbox', () => {
     sysctl('kernel/unprivileged_userns_clone', '1'); sysctl('user/max_user_namespaces', '100'); sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
     const r = sandbox();
-    const electron = path.join(dist, 'electron');
+    const cs = path.join(dist, 'chrome-sandbox');
     expect(r.salida).toContain('✗'); expect(r.salida).toContain('faltan=1'); expect(r.salida).toContain('AppArmor');
-    expect(r.salida).toContain(`'"${electron}" flags=(unconfined) {' '  userns,' '}' | sudo tee /etc/apparmor.d/`);
-    expect(r.salida).toContain('abi <abi/4.0>,');
-    expect(r.salida).toMatch(/sudo apparmor_parser -r \/etc\/apparmor\.d\/\S+/);
-    expect(r.salida).toContain('sudo chmod 4755');
+    expect(r.salida).toContain(`sudo chown root:root "${cs}" && sudo chmod 4755 "${cs}"`);
+    expect(r.salida).toMatch(/opción segura.*no puede crear un archivo SUID de root/);
+    expect(r.salida).toMatch(/reinstal/);
+    // un perfil `unconfined` + `userns` para un binario que tu usuario puede cambiar se salta la restricción: no se propone
+    expect(r.salida).not.toMatch(/apparmor_parser|unconfined|userns,|sudo tee|abi </);
     expect(r.salida).not.toMatch(/no-sandbox|apparmor_restrict_unprivileged_userns=0|sysctl -w/);
   });
-  it('la orden del perfil, ejecutada (con tee en vez de sudo tee), escribe un perfil que el propio diagnóstico reconoce', () => {
+  const perfil = (nombre: string, texto: string) => escribir(path.join(raiz, 'etc', 'apparmor.d', nombre), texto);
+  it('un perfil ya hecho para este binario exacto cuenta (informativo), con el aviso de que debilita la restricción', () => {
     sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    const orden = linea(sandbox().salida, '| sudo tee').trim().replace('| sudo tee /etc/apparmor.d/', `| tee ${path.join(raiz, 'etc', 'apparmor.d')}/`);
-    mkdirSync(path.join(raiz, 'etc', 'apparmor.d'), { recursive: true });
-    expect(spawnSync('/bin/bash', ['-c', `${orden} >/dev/null`], { env: { PATH: process.env.PATH } }).status).toBe(0);
-    const r = sandbox();
-    expect(r.salida).toMatch(/✓.*perfil/); expect(r.salida).toContain('faltan=0');
+    const electron = path.join(dist, 'electron');
+    for (const cabecera of [`"${electron}" flags=(unconfined) {`, `${electron} flags=(unconfined) {`, `profile shelter "${electron}" {`, `profile ${electron}{`]) {
+      perfil('shelter', `abi <abi/4.0>,\ninclude <tunables/global>\n${cabecera}\n  userns,\n}\n`);
+      const r = sandbox();
+      expect(r.salida, cabecera).toMatch(/✓.*perfil/); expect(r.salida, cabecera).toContain('faltan=0');
+      expect(r.salida, cabecera).toMatch(/debilita la restricción/); expect(r.salida, cabecera).toContain('sudo chmod 4755');
+    }
   });
-  it('un perfil de otro binario no cuenta', () => {
+  it('un perfil de otro binario no cuenta, tampoco el de una ruta que solo empieza igual', () => {
     sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    escribir(path.join(raiz, 'etc', 'apparmor.d', 'chrome'), '/opt/google/chrome/chrome flags=(unconfined) {\n  userns,\n}\n');
+    const electron = path.join(dist, 'electron');
+    perfil('chrome', '/opt/google/chrome/chrome flags=(unconfined) {\n  userns,\n}\n');
+    expect(sandbox().salida).toContain('faltan=1');
+    perfil('chrome', `"${electron}-viejo" flags=(unconfined) {\n  userns,\n}\n`);
+    expect(sandbox().salida).toContain('faltan=1');
+    perfil('chrome', `${electron}2 flags=(unconfined) {\n  userns,\n}\n`);
+    expect(sandbox().salida).toContain('faltan=1');
+  });
+  it('la ruta exacta sin userns en su bloque no cuenta (aunque otro perfil del archivo lo tenga)', () => {
+    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
+    const electron = path.join(dist, 'electron');
+    perfil('mezcla', `"${electron}" {\n  # userns, comentado\n}\n/opt/otro {\n  userns,\n}\n# ${electron} userns,\n`);
     expect(sandbox().salida).toContain('faltan=1');
   });
 });
@@ -251,5 +267,31 @@ describe('./shelter doctor', () => {
   });
   it('el aviso del lanzador cuando cae el aislamiento lleva a ./shelter doctor', () => {
     expect(readFileSync(path.join(RAIZ, 'scripts', 'plataforma.sh'), 'utf8')).toContain('./shelter doctor');
+  });
+});
+
+// doctor.sh copia de server/plataforma.ts el orden de las terminales y de los editores y la regla del `zed` de Zed: si uno
+// cambia sin el otro, el diagnóstico diría que hay una terminal o un editor que el juego no usaría
+describe('mismo orden y misma regla que server/plataforma.ts', () => {
+  const texto = readFileSync(DOCTOR, 'utf8');
+  const bucle = (funcion: string, variable: string) => {
+    const cuerpo = texto.slice(texto.indexOf(`${funcion}() {`));
+    const m = cuerpo.match(new RegExp(`for ${variable} in ([^;]+);`));
+    expect(m, funcion).not.toBeNull();
+    return m![1].trim().split(/\s+/).map(t => (t === '"${TERMINAL:-}"' ? '$TERMINAL' : t));
+  };
+  it('editores', () => { expect(bucle('comprobar_editor', 'e')).toEqual([...EDITORES_LINUX]); });
+  it('terminales ($TERMINAL primero)', () => {
+    const pedidas: string[] = [];
+    ordenTerminal('/tmp', 'linux', { env: { TERMINAL: '$TERMINAL' }, buscar: n => { pedidas.push(n); return null; } });
+    expect(bucle('comprobar_terminal', 't')).toEqual(pedidas);
+  });
+  it('un `zed` solo vale con libexec/zed-editor junto a su ruta real, en los dos', () => {
+    const app = path.join(dir, 'zed.app'); const zed = programa('zed', 'exit 0', path.join(app, 'bin'));
+    const env = { PATH: `${bin}:${path.join(app, 'bin')}` };
+    const ts = () => editorLinux({ buscar: n => (n === 'zed' ? zed : null) });
+    expect(ts()).toBeNull(); expect(bash('comprobar_editor', { env }).salida).toMatch(/· Editor/);
+    escribir(path.join(app, 'libexec', 'zed-editor'), '');
+    expect(ts()).toBe(zed); expect(bash('comprobar_editor', { env }).salida).toContain('✓ Editor (zed)');
   });
 });

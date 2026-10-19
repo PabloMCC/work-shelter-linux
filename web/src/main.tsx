@@ -32,8 +32,22 @@ function crearMotor(): Motor | null {
   if (!hayWebGL2()) return null;
   try { return new Motor(document.getElementById('mundo')!); } catch (e) { console.error('No se pudo crear el motor 3D:', e); return null; }
 }
+// lo que Electron le pide a la página (cerrar la ventana y la tecla de pánico) va en las dos pantallas, con o sin
+// refugio: solo usa la conexión con el servidor
+function ganchosDeElectron() {
+  (window as any).__salirRefugio = () => new Promise<void>(ok => { cliente.enviar({ t: 'salir' }); setTimeout(ok, 300); });
+  // tecla de pánico (Electron): lo abierto sale a tu escritorio. Contesta al momento; si no hay conexión, Electron se lo
+  // pide al servidor por su cuenta (./shelter superficie)
+  // (fuera de macOS aún no está: contesta que no sin pedir nada, y Electron no recurre al servidor)
+  (window as any).__superficie = () => { if (!vivo.get().capacidades.superficie) return Promise.resolve(false); if (!vivo.get().conectado) return Promise.reject(new Error('Sin conexión')); cliente.accion('superficie.sacar', { todo: true, ventanaNueva: true }).catch(() => {}); return Promise.resolve(true); };
+}
 const motorCreado = crearMotor();
-if (!motorCreado) { createRoot(document.getElementById('ui')!).render(<SinGraficos />); cliente.conectar(); }
+ganchosDeElectron();
+if (!motorCreado) {
+  // la QA espera a __ready() para medir el refugio: sin él, falla diciéndolo en vez de quedarse esperando
+  (window as any).__ready = () => Promise.reject(new Error('Sin WebGL2: el refugio no se dibuja'));
+  createRoot(document.getElementById('ui')!).render(<SinGraficos />); cliente.conectar();
+}
 else arrancarJuego(motorCreado);
 
 function arrancarJuego(motor: Motor) {
@@ -47,11 +61,6 @@ function arrancarJuego(motor: Motor) {
   createRoot(document.getElementById('ui')!).render(<><Hud /><Dialogo /><Paneles /><Terminales /><Navegadores /><ClienteGit /><Explorador /><div className="columna-izquierda"><Pletina /><Barra /></div><Avisos /><Buscador /><CargaSalas /><Carga /></>);
   cliente.conectar();
   Object.assign(window as any, { __juego: juego, __cliente: cliente, __vivo: vivo, __intercoms: intercoms, __navegadores: { navegadores, abrirNavegador }, __git: { ventanaGit, abrirGit }, __archivos: { ventanaArchivos, abrirArchivos } }); // para QA y depuración
-  (window as any).__salirRefugio = () => new Promise<void>(ok => { cliente.enviar({ t: 'salir' }); setTimeout(ok, 300); });
-  // tecla de pánico (Electron): lo abierto sale a tu escritorio. Contesta al momento; si no hay conexión, Electron se lo
-  // pide al servidor por su cuenta (./shelter superficie)
-  // (fuera de macOS aún no está: contesta que no sin pedir nada, y Electron no recurre al servidor)
-  (window as any).__superficie = () => { if (!vivo.get().capacidades.superficie) return Promise.resolve(false); if (!vivo.get().conectado) return Promise.reject(new Error('Sin conexión')); cliente.accion('superficie.sacar', { todo: true, ventanaNueva: true }).catch(() => {}); return Promise.resolve(true); };
   motor.arrancar();
   // fuera de primer plano el motor deja de pintar y la interfaz deja de animarse
   vigilarPrimerPlano(activo => motor.alCambiarPrimerPlano(activo));
