@@ -137,7 +137,8 @@ export class Sesiones extends EventEmitter {
   private s = new Map<string, Sesion>();
   claude = rutaClaude();
   version = versionClaude(this.claude);
-  constructor(private resolutor: ResolutorSalas, private adjuntos?: Adjuntos) { super(); }
+  // consulta: la query() del Agent SDK (las pruebas pasan una falsa)
+  constructor(private resolutor: ResolutorSalas, private adjuntos?: Adjuntos, private consulta: typeof query = query) { super(); }
 
   lista() { return [...this.s.values()].map(x => x.r); }
   get(id: string) { return this.s.get(id); }
@@ -254,7 +255,7 @@ export class Sesiones extends EventEmitter {
     }
     const decorar = this.resolutor.mcpSala?.(x.r.salaId);
     if (decorar) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), refugio: decorar };
-    x.q = query({ prompt: cola, options: opciones });
+    x.q = this.consulta({ prompt: cola, options: opciones });
     x.viva = true; x.cerrando = false;
     this.consumir(x, x.q);
   }
@@ -539,7 +540,7 @@ export class Sesiones extends EventEmitter {
     } catch {}
     if (!respuesta && x.r.claudeId) {
       try {
-        const q = query({ prompt: pregunta, options: { ...this.opcionesBase(x, x.r.claudeId), permissionMode: 'plan', allowDangerouslySkipPermissions: undefined, tools: [], disallowedTools: ['mcp__*'], forkSession: true, persistSession: false, maxTurns: 1, includePartialMessages: false, canUseTool: async () => ({ behavior: 'deny', message: 'Pregunta lateral: sin herramientas.' }) } as Options });
+        const q = this.consulta({ prompt: pregunta, options: { ...this.opcionesBase(x, x.r.claudeId), permissionMode: 'plan', allowDangerouslySkipPermissions: undefined, tools: [], disallowedTools: ['mcp__*'], forkSession: true, persistSession: false, maxTurns: 1, includePartialMessages: false, canUseTool: async () => ({ behavior: 'deny', message: 'Pregunta lateral: sin herramientas.' }) } as Options });
         for await (const m of q) if (m.type === 'result' && (m as any).subtype === 'success') respuesta = (m as any).result;
       } catch (e) { respuesta = `No he podido responder la pregunta lateral: ${(e as Error).message}`; }
     }
