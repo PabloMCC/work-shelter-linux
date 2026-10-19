@@ -1,5 +1,5 @@
 // Estado persistente del refugio (en local, en .data/refugio.json): salas, habitantes, disposición, ajustes,
-// progreso del jugador, récords, notificaciones vistas. Las credenciales NO van aquí (llavero de macOS).
+// progreso del jugador, récords, notificaciones vistas. Las credenciales NO van aquí (llavero del sistema).
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
