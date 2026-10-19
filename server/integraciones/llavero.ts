@@ -34,9 +34,9 @@ const ejecutarReal: Ejecutar = (bin, args, entrada, tiempo = 15_000) => new Prom
 });
 
 // Mensaje sin el secreto: solo el código y la primera línea de stderr (que no lo contiene)
-function fallo(que: string, r: { codigo: number; error: string }, mac = true) {
+function fallo(llavero: 'mac' | 'sistema', que: string, r: { codigo: number; error: string }) {
   const detalle = `(código ${r.codigo}${r.error.trim() ? ': ' + r.error.trim().split('\n')[0] : ''})`;
-  return new Error(mac
+  return new Error(llavero === 'mac'
     ? `El llavero de macOS no pudo ${que} ${detalle}. ¿Está bloqueado o se denegó el acceso?`
     : `El llavero del sistema no pudo ${que} ${detalle}. ¿Está bloqueado, se denegó el acceso o no hay un servicio de secretos (KWallet, GNOME Keyring…) en marcha?`);
 }
@@ -48,7 +48,7 @@ export const llaveroMac: Llavero = {
     validaCuenta(cuenta);
     const r = await ejecutarReal(SECURITY, ['find-generic-password', '-s', SERVICIO, '-a', cuenta, '-w']);
     if (r.codigo === NO_EXISTE) return null;
-    if (r.codigo !== 0) throw fallo('leer el secreto', r);
+    if (r.codigo !== 0) throw fallo('mac', 'leer el secreto', r);
     const b64 = r.salida.trim();
     try { return Buffer.from(b64, 'base64').toString('utf8'); } catch { return null; }
   },
@@ -58,15 +58,15 @@ export const llaveroMac: Llavero = {
     const fuente = cuenta.split('.')[0];
     // `security -i` lee órdenes por stdin: el secreto no aparece en la lista de procesos
     const r = await ejecutarReal(SECURITY, ['-i'], `add-generic-password -U -s ${SERVICIO} -a ${cuenta} -l "work-shelter: ${fuente}" -w ${b64}\n`);
-    if (r.codigo !== 0) throw fallo('guardar el secreto', r);
+    if (r.codigo !== 0) throw fallo('mac', 'guardar el secreto', r);
     // En modo interactivo `security` puede salir con 0 aunque la orden falle: se comprueba leyendo
     const leido = await this.leer(cuenta);
-    if (leido !== valor) throw fallo('guardar el secreto', { codigo: r.codigo, error: r.error || 'no se pudo verificar' });
+    if (leido !== valor) throw fallo('mac', 'guardar el secreto', { codigo: r.codigo, error: r.error || 'no se pudo verificar' });
   },
   async borrar(cuenta) {
     validaCuenta(cuenta);
     const r = await ejecutarReal(SECURITY, ['delete-generic-password', '-s', SERVICIO, '-a', cuenta]);
-    if (r.codigo !== 0 && r.codigo !== NO_EXISTE) throw fallo('borrar el secreto', r);
+    if (r.codigo !== 0 && r.codigo !== NO_EXISTE) throw fallo('mac', 'borrar el secreto', r);
   },
 };
 
@@ -90,20 +90,20 @@ export function crearLlaveroLinux(o: OpcionesLinux = {}): Llavero {
       const r = await ejecutar(secretTool(), ['lookup', ...atributos(cuenta)], undefined, TIEMPO_LINUX);
       if (r.codigo === 0) return r.salida;
       if (noExiste(r)) return null;
-      throw fallo('leer el secreto', r, false);
+      throw fallo('sistema', 'leer el secreto', r);
     },
     async guardar(cuenta, valor) {
       validaCuenta(cuenta);
       const fuente = cuenta.split('.')[0];
       const r = await ejecutar(secretTool(), ['store', `--label=work-shelter: ${fuente}`, ...atributos(cuenta)], valor, TIEMPO_LINUX);
-      if (r.codigo !== 0) throw fallo('guardar el secreto', r, false);
+      if (r.codigo !== 0) throw fallo('sistema', 'guardar el secreto', r);
       const leido = await this.leer(cuenta);
-      if (leido !== valor) throw fallo('guardar el secreto', { codigo: r.codigo, error: r.error || 'no se pudo verificar' }, false);
+      if (leido !== valor) throw fallo('sistema', 'guardar el secreto', { codigo: r.codigo, error: r.error || 'no se pudo verificar' });
     },
     async borrar(cuenta) {
       validaCuenta(cuenta);
       const r = await ejecutar(secretTool(), ['clear', ...atributos(cuenta)], undefined, TIEMPO_LINUX);
-      if (r.codigo !== 0 && !noExiste(r)) throw fallo('borrar el secreto', r, false);
+      if (r.codigo !== 0 && !noExiste(r)) throw fallo('sistema', 'borrar el secreto', r);
     },
   };
 }

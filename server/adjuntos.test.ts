@@ -111,6 +111,48 @@ describe('adjuntos del intercomunicador', () => {
     expect(await medidas((await adj.miniatura(ruta)).split(',')[1])).toEqual({ ancho: 120, alto: 360, formato: 'jpeg' });
   }, 30_000);
 
+  it('una foto pequeña con EXIF (GPS incluido) no va tal cual: se recodifica sin metadatos', async () => {
+    const original = await lisa(1200, 800).jpeg().withExif({ IFD0: { Copyright: 'alguien' }, IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '40/1 25/1 0/1', GPSLongitudeRef: 'W', GPSLongitude: '3/1 42/1 0/1' } }).toBuffer();
+    expect((await sharp(original).metadata()).exif).toBeDefined();
+    const ruta = await subir(adj, 'con-gps.jpg', original);
+    const c = await adj.contenido('', adj.describir([ruta])) as any[];
+    const enviada = Buffer.from(c[0].source.data, 'base64');
+    expect(c[0].source.media_type).toBe('image/jpeg');
+    expect(enviada.equals(original)).toBe(false);
+    const m = await sharp(enviada).metadata();
+    expect([m.width, m.height, m.exif, m.xmp, m.iptc]).toEqual([1200, 800, undefined, undefined, undefined]);
+  });
+
+  it('un PNG con EXIF se recodifica y sigue siendo PNG (sin pérdida); uno sin metadatos, o un JPEG solo con perfil ICC, va tal cual', async () => {
+    const conExif = await subir(adj, 'con-exif.png', lisa(300, 200).png().withExif({ IFD0: { Artist: 'alguien' } }));
+    expect((await sharp(conExif).metadata()).exif).toBeDefined();
+    const c = await adj.contenido('', adj.describir([conExif])) as any[];
+    expect(c[0].source.media_type).toBe('image/png');
+    expect((await sharp(Buffer.from(c[0].source.data, 'base64')).metadata()).exif).toBeUndefined();
+    for (const [nombre, img] of [['limpio.png', lisa(300, 200).png()], ['icc.jpg', lisa(300, 200).jpeg().withIccProfile('srgb')]] as const) {
+      const original = await img.toBuffer(), ruta = await subir(adj, nombre, original);
+      const d = await adj.contenido('', adj.describir([ruta])) as any[];
+      expect(d[0].source.data).toBe(original.toString('base64'));
+    }
+  });
+
+  it('una foto pequeña con orientación EXIF 6 llega derecha', async () => {
+    const ruta = await subir(adj, 'girada.jpg', lisa(300, 100).jpeg().withMetadata({ orientation: 6 }));
+    const c = await adj.contenido('', adj.describir([ruta])) as any[];
+    const m = await sharp(Buffer.from(c[0].source.data, 'base64')).metadata();
+    expect([m.width, m.height, m.orientation]).toEqual([100, 300, undefined]);
+  });
+
+  it('un WebP o un JPEG con nombre de PNG no va como image/png tal cual: se recodifica', async () => {
+    for (const img of [lisa(300, 200).webp(), lisa(300, 200).jpeg()]) {
+      const original = await img.toBuffer(), ruta = await subir(adj, 'disfrazado.png', original);
+      const c = await adj.contenido('', adj.describir([ruta])) as any[];
+      expect(c[0].source.media_type).toBe('image/jpeg');
+      expect(c[0].source.data).not.toBe(original.toString('base64'));
+      expect(await medidas(c[0].source.data)).toEqual({ ancho: 300, alto: 200, formato: 'jpeg' });
+    }
+  });
+
   it('un formato que sharp no debe leer (SVG con nombre de PNG) no se decodifica: va solo por su ruta', async () => {
     const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>');
     const ruta = await subir(adj, 'trampa.png', svg);

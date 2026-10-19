@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { ordenDecodificar } from './imagenes.ts';
+import { describe, it, expect, vi } from 'vitest';
+import { ordenDecodificar, imagenParaClaude, miniaturaJpeg } from './imagenes.ts';
 
 describe('decodificador externo (HEIC y BMP, que sharp no lee)', () => {
   const todos = (n: string) => '/usr/bin/' + n;
@@ -17,5 +17,28 @@ describe('decodificador externo (HEIC y BMP, que sharp no lee)', () => {
       expect(ordenDecodificar(`/u/a.${ext}`, '/t/a.png', 'linux', todos)).toBeNull();
       expect(ordenDecodificar(`/u/a.${ext}`, '/t/a.png', 'darwin', todos)).toBeNull();
     }
+  });
+});
+
+describe('sin sharp (su binario nativo no carga en este sistema)', () => {
+  const ruta = '/no/importa/foto.jpg';
+  it('la imagen va solo por su ruta, la miniatura falla con un error claro y se avisa una vez, sin rutas', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const rota = async (): Promise<never> => { throw new Error('Could not load the "sharp" module from /home/alguien/proyecto/node_modules'); };
+      expect(await imagenParaClaude(ruta, { cargarSharp: rota })).toBeNull();
+      expect(await imagenParaClaude(ruta, { cargarSharp: rota })).toBeNull();
+      await expect(miniaturaJpeg(ruta, 360, { cargarSharp: rota })).rejects.toThrow(/librería de imágenes/);
+      expect(aviso).toHaveBeenCalledTimes(1);
+      expect(String(aviso.mock.calls[0][0])).toMatch(/sharp/);
+      expect(String(aviso.mock.calls[0][0])).not.toMatch(/\/home|node_modules/);
+    } finally { aviso.mockRestore(); }
+  });
+  it('sin sharp tampoco se lanza el decodificador externo', async () => {
+    const llamadas: unknown[] = [];
+    const o = { plataforma: 'linux' as const, buscar: (n: string) => '/x/' + n, ejecutar: async (x: unknown) => { llamadas.push(x); }, cargarSharp: async (): Promise<never> => { throw new Error('no'); } };
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try { expect(await imagenParaClaude('/u/a.heic', o)).toBeNull(); } finally { aviso.mockRestore(); }
+    expect(llamadas).toEqual([]);
   });
 });
