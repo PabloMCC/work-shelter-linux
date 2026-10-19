@@ -26,14 +26,16 @@ export interface AccionesVentana {
   sacar?: () => void;                    // a una terminal de tu escritorio
 }
 /** Atajos de ventana; devuelve true si la tecla era uno de ellos (y ya se ha hecho). */
-// navegador: la ventana es un navegador del refugio, donde cerrar es de navegador (Ctrl+W en Linux)
-export function atajoVentana(e: KeyboardEvent | React.KeyboardEvent, a: AccionesVentana, o: { navegador?: boolean } = {}): boolean {
+// navegador: la ventana es un navegador del refugio, donde cerrar es de navegador (Ctrl+W en Linux).
+// mac: la plataforma (por defecto, la de este navegador; los tests prueban las dos)
+export function atajoVentana(e: KeyboardEvent | React.KeyboardEvent, a: AccionesVentana, o: { navegador?: boolean; mac?: boolean } = {}): boolean {
+  const mac = o.mac ?? MAC;
   let f: (() => void) | null = null;
   if (e.ctrlKey && !e.metaKey && e.key === 'Tab') f = () => a.moverPestana(e.shiftKey ? -1 : 1);
-  else if (esAtajo(e, 'KeyW', { clase: o.navegador ? 'navegador' : 'refugio' })) f = e.shiftKey && MAC ? a.cerrarVentana : a.cerrarPestana;
-  else if (conModificador(e, 'refugio')) {
+  else if (esAtajo(e, 'KeyW', { mac, clase: o.navegador ? 'navegador' : 'refugio' })) f = e.shiftKey && mac ? a.cerrarVentana : a.cerrarPestana;
+  else if (conModificador(e, 'refugio', mac)) {
     if (e.code === 'KeyT' && a.nuevaPestana) f = a.nuevaPestana;
-    else if (esAtajo(e, 'KeyM')) f = a.minimizar;
+    else if (esAtajo(e, 'KeyM', { mac })) f = a.minimizar;
     else if (e.code === 'KeyE' && e.shiftKey && a.sacar) f = a.sacar;
     else if (e.key === 'ArrowUp') f = () => { if (!a.maximizada) a.alternarMaximizar(); };
     else if (e.key === 'ArrowDown') f = a.maximizada ? a.alternarMaximizar : a.minimizar;

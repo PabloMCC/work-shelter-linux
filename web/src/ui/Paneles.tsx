@@ -286,7 +286,7 @@ const CONTROLES_DIALOGO: [string, string][] = [
 ];
 const CONTROLES_VENTANA: [string, string][] = [
   ['⌘T', 'pestaña nueva: otro trabajo con el mismo habitante, u otro shell en la terminal'],
-  [MAC ? '⌘W / ⌘⇧W' : etiquetaAtajo('KeyW', { clase: 'refugio' }), 'cerrar la pestaña / la ventana; con algo en marcha, pregunta antes'], ['⌘1…⌘9, ⌃Tab', 'cambiar de pestaña'],
+  [MAC ? '⌘W / ⌘⇧W' : etiquetaAtajo('KeyW', { clase: 'refugio' }), `cerrar la pestaña${MAC ? ' / la ventana' : ''}; con algo en marcha, pregunta antes`], ['⌘1…⌘9, ⌃Tab', 'cambiar de pestaña'],
   [`${CMD}↓ · ${etiquetaAtajo('KeyM')} · _`, 'minimizar a la barra de abajo a la izquierda; todo sigue y al volver se ve igual'],
   ['⌘↑ · ▢', 'pantalla completa (⌘↓ la restaura; también doble clic en la cabecera)'],
   [`${etiquetaAtajo('KeyB')} (B en el refugio)`, 'barra de ventanas con el teclado: ←→ elegir, ↑↓ fila, Intro abrir, X cerrar, M minimizar, Esc salir'],

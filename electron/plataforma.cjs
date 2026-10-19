@@ -41,16 +41,21 @@ const ATAJOS = Object.freeze({
   KeyJ: 'refugio', KeyK: 'refugio', KeyM: 'refugio', KeyB: 'refugio',
   KeyW: 'navegador', KeyR: 'navegador', BracketLeft: 'navegador', BracketRight: 'navegador', Equal: 'navegador', Minus: 'navegador', Digit0: 'navegador',
 });
-// la tecla (su `code`) si la pulsación es uno de esos atajos; si no, null y va a la página. Con Mayús de más no valen
-// atrás y adelante ni, en macOS, la música y el buscador (⌘⇧J y ⌘⇧K, a la página, como siempre)
+// con una Mayús de más no valen atrás y adelante ni, en macOS, la música y el buscador (⌘⇧J y ⌘⇧K, a la página, como
+// siempre). La misma regla que la interfaz (teclas.ts, atajoNavegador; el test recorre todas las combinaciones)
+const sinMayusExtra = (code, mac) => code === 'BracketLeft' || code === 'BracketRight' || (mac && (code === 'KeyJ' || code === 'KeyK'));
+// la tecla (su `code`) si la pulsación es uno de esos atajos; si no, null y va a la página
 function atajoNavegador(plataforma = process.platform, k = {}) {
   const clase = ATAJOS[k.code];
   if (!clase || k.alt || !atajoWebview(plataforma, k)) return null;
   const mac = plataforma === 'darwin';
   if (!mac && clase === 'refugio' && !k.shift) return null;
-  if (k.shift && (k.code === 'BracketLeft' || k.code === 'BracketRight' || (mac && (k.code === 'KeyJ' || k.code === 'KeyK')))) return null;
+  if (k.shift && sinMayusExtra(k.code, mac)) return null;
   return k.code;
 }
+// las que se reenvían a la interfaz (minimizar, cerrar y la barra); las demás las resuelve Electron. Una tecla nueva en
+// ATAJOS no se reenvía hasta que se añada aquí
+const REENVIADAS = Object.freeze(['KeyM', 'KeyW', 'KeyB']);
 // lo que se reenvía a la interfaz (window.__atajoNavegador): los modificadores tal cual, para que su comprobación
 // (teclas.ts) valga en los dos sistemas
 const teclasReenviadas = k => ({ code: k.code, key: k.key, shiftKey: !!k.shift, ctrlKey: !!k.control, metaKey: !!k.meta });
@@ -65,4 +70,4 @@ function esEnlaceExterno(u) {
   try { return EXTERNOS.includes(new URL(u).protocol); } catch { return false; }
 }
 
-module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, teclasReenviadas, PANICO, esEnlaceExterno };
+module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, esEnlaceExterno };

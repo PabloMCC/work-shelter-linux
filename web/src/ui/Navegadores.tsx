@@ -12,7 +12,7 @@ import React, { useEffect, useRef } from 'react';
 import { Almacen } from './almacen';
 import { SFX } from '../audio/sonido';
 import { siguienteZ, atajoVentana, BotonesVentana } from './ventanas';
-import { esAtajo, etiquetaAtajo } from './teclas';
+import { esAtajo, etiquetaAtajo, atajoNavegador, teclasDeElectron, type Reenviadas } from './teclas';
 
 // dominios: los de la web (y sus subdominios), para abrir dentro sus enlaces; electron/main.cjs tiene sus familias
 // desvios: rutas de la web que llevan a otra (p. ej. avisos que no aplican aquí): se va directamente a la de destino
@@ -125,11 +125,12 @@ const acciones = (v: VentanaNav) => ({
   alternarMaximizar: () => alternarMaximizar(v.id), irPestana: () => {}, moverPestana: () => {},
 });
 // con el foco dentro de la web, las teclas no pasan por la página del juego: Electron manda aquí las de ventana
-// (con sus modificadores tal cual: ⌘ en macOS y Ctrl en Linux; electron/plataforma.cjs, teclasReenviadas)
-(window as any).__atajoNavegador = (wcId: number, k: { code: string; key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+// (con sus modificadores tal cual: ⌘ en macOS y Ctrl en Linux; sin ellos, de un Electron anterior, como ⌘: teclasDeElectron)
+(window as any).__atajoNavegador = (wcId: number, k: Reenviadas) => {
   const id = [...webviews].find(([, w]) => { try { return w.getWebContentsId() === wcId; } catch { return false; } })?.[0];
   const v = id ? ventana(id) : undefined; if (!v) return;
-  const e = new KeyboardEvent('keydown', { code: k.code, key: k.key, shiftKey: k.shiftKey, ctrlKey: k.ctrlKey, metaKey: k.metaKey, bubbles: true, cancelable: true });
+  const e = new KeyboardEvent('keydown', { ...teclasDeElectron(k), bubbles: true, cancelable: true });
+  if (!atajoNavegador(e)) return;
   // ⌘B (la barra) escucha en la ventana; el resto son de esta ventana del navegador
   if (k.code === 'KeyB') dispatchEvent(e); else atajoVentana(e, acciones(v), { navegador: true });
 };

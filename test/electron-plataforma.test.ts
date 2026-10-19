@@ -2,7 +2,7 @@
 // parámetro, así que se prueban macOS y Linux en cualquier runner. No se abre Electron.
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
-import { ATAJOS } from '../web/src/ui/teclas';
+import { ATAJOS, atajoNavegador as atajoInterfaz } from '../web/src/ui/teclas';
 
 type Entrada = { meta?: boolean; control?: boolean; shift?: boolean; alt?: boolean; code?: string; key?: string };
 const p = createRequire(import.meta.url)('../electron/plataforma.cjs') as {
@@ -12,6 +12,7 @@ const p = createRequire(import.meta.url)('../electron/plataforma.cjs') as {
   atajoWebview(plataforma: string, entrada: Entrada): boolean;
   ATAJOS: Record<string, string>;
   atajoNavegador(plataforma: string, entrada: Entrada): string | null;
+  REENVIADAS: readonly string[];
   teclasReenviadas(entrada: Entrada): { code?: string; key?: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean };
   PANICO: string;
   esEnlaceExterno(url: unknown): boolean;
@@ -99,6 +100,25 @@ describe('atajoNavegador (las teclas que el refugio coge dentro de un navegador)
   });
   it('la misma lista que la interfaz (web/src/ui/teclas.ts): mismas teclas y mismas clases', () => {
     expect(p.ATAJOS).toEqual(ATAJOS);
+  });
+  it('la misma regla que la interfaz: en los dos sistemas, con cualquier combinación de ⌘, Ctrl, Mayús y Alt', () => {
+    const bool = [false, true];
+    let casos = 0;
+    for (const so of ['darwin', 'linux']) for (const code of [...Object.keys(ATAJOS), 'KeyT', 'KeyC'])
+      for (const meta of bool) for (const control of bool) for (const shift of bool) for (const alt of bool) {
+        const e = { code, key: '', metaKey: meta, ctrlKey: control, shiftKey: shift, altKey: alt };
+        expect([so, code, meta, control, shift, alt, atajoInterfaz(e, so === 'darwin')])
+          .toEqual([so, code, meta, control, shift, alt, p.atajoNavegador(so, { code, meta, control, shift, alt })]);
+        casos++;
+      }
+    expect(casos).toBe(2 * 13 * 16);
+  });
+});
+
+describe('REENVIADAS', () => {
+  it('a la interfaz solo van minimizar, cerrar y la barra (las demás las resuelve Electron)', () => {
+    expect([...p.REENVIADAS].sort()).toEqual(['KeyB', 'KeyM', 'KeyW']);
+    for (const c of p.REENVIADAS) expect(p.ATAJOS[c]).toBeDefined();
   });
 });
 

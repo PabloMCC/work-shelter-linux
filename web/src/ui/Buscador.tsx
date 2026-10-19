@@ -35,7 +35,7 @@ function cerrarBuscador(volverAlFoco = true) {
   antes = null;
 }
 // ⌘K en macOS; Ctrl+Mayús+K en Linux (Ctrl+K es de la terminal y de los editores de las webs)
-const esCmdK = (e: KeyboardEvent) => esAtajo(e, 'KeyK', { mayus: false });
+const esCmdK = (e: KeyboardEvent) => esAtajo(e, 'KeyK', { mayusExtra: false });
 // en captura: antes que las terminales y los intercomunicadores (⌘K es del refugio en todas partes)
 addEventListener('keydown', e => {
   if (!esCmdK(e)) return;

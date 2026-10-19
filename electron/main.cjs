@@ -118,7 +118,7 @@ function configurarNavegador(v, wc, dominios) {
     else if (tecla === 'KeyJ') v.webContents.executeJavaScript('window.__atajoMusica && window.__atajoMusica()').catch(() => {});   // la música
     else if (tecla === 'KeyK') v.webContents.executeJavaScript('window.__atajoBuscador && window.__atajoBuscador()').catch(() => {});   // el buscador
     // M, W y B: a la ventana del navegador en el juego, con sus modificadores
-    else v.webContents.executeJavaScript(`window.__atajoNavegador && window.__atajoNavegador(${wc.id}, ${JSON.stringify(plataforma.teclasReenviadas(k))})`).catch(() => {});
+    else if (plataforma.REENVIADAS.includes(tecla)) v.webContents.executeJavaScript(`window.__atajoNavegador && window.__atajoNavegador(${wc.id}, ${JSON.stringify(plataforma.teclasReenviadas(k))})`).catch(() => {});
   });
   wc.on('context-menu', (_e, p) => {
     const m = [];
