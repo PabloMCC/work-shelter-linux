@@ -99,7 +99,7 @@ ventana_electron() {
   printf 'La ventana del juego (Electron) se ha cerrado con un error (código %s).%s\n' "$codigo" "${log:+ Registro: $log}" >&2
   [ $((SECONDS - inicio)) -ge "${MARGEN_ELECTRON:-10}" ] && return 0
   if [ -n "$log" ] && registro_pide_sandbox "$log"; then
-    echo "  Este sistema no deja a Electron usar su aislamiento (sandbox), que protege del contenido web: el diagnóstico de work-shelter explica cómo permitirlo de forma segura." >&2
+    echo "  Este sistema no deja a Electron usar su aislamiento (sandbox), que protege del contenido web: el diagnóstico (./shelter doctor) explica cómo permitirlo de forma segura." >&2
   fi
   return 1
 }

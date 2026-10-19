@@ -15,8 +15,9 @@ rojo() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 
 # Subórdenes (salir a la superficie, server/superficie.ts): ./shelter superficie [--lista] · ./shelter enganchar <id>
 # ./shelter instalar-app [--sin-dock] […]: prepara lo mismo que el arranque y crea la app de macOS, sin abrir el juego
+# ./shelter doctor: comprueba lo obligatorio y lo opcional (scripts/doctor.sh) sin preparar ni instalar nada
 INSTALAR_APP=""
-case "${1:-}" in superficie|enganchar) SUBORDEN=1 ;; instalar-app) SUBORDEN=""; INSTALAR_APP=1; shift; echo "== work-shelter ==" ;; *) SUBORDEN=""; echo "== work-shelter ==" ;; esac
+case "${1:-}" in doctor) exec bash scripts/doctor.sh ;; superficie|enganchar) SUBORDEN=1 ;; instalar-app) SUBORDEN=""; INSTALAR_APP=1; shift; echo "== work-shelter ==" ;; *) SUBORDEN=""; echo "== work-shelter ==" ;; esac
 # la app de instalar-app es solo de macOS: fuera de él se avisa antes de preparar nada
 if [ -n "$INSTALAR_APP" ]; then instalar_app_disponible || exit 1; fi
 
