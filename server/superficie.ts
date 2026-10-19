@@ -12,6 +12,8 @@ import WebSocket from 'ws';
 import { DATOS } from './estado.ts';
 import { SOCKET_TERMINALES } from './terminales.ts';
 import { abrirEnEscritorio, abiertasFuera, comandoEnganchar, comandoReanudar, type ItemEscritorio } from './escritorio.ts';
+import { capacidades } from './plataforma.ts';
+import { AVISOS_CAPACIDAD } from '../shared/protocolo.ts';
 
 const RAIZ = path.resolve(import.meta.dirname, '..');
 const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);
@@ -124,5 +126,7 @@ if (orden === 'enganchar') {
   if (!args[0] || args[0].startsWith('--')) { console.error('Uso: ./shelter enganchar <id> [--socket ruta]'); process.exit(2); }
   enganchar(args[0], opcion('--socket') ?? SOCKET_TERMINALES);
 } else if (orden === 'superficie') {
+  // fuera de macOS aún no hay con qué abrir lo del juego en tu escritorio: se avisa sin tocar nada
+  if (!capacidades().superficie) { console.error(AVISOS_CAPACIDAD.superficie); process.exit(1); }
   superficie(args.includes('--lista')).then(() => process.exit(0), e => { console.error((e as Error).message); process.exit(1); });
 } else { console.error('Uso: ./shelter superficie [--lista] · ./shelter enganchar <id>'); process.exit(2); }

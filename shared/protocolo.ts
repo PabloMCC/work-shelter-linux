@@ -136,8 +136,22 @@ export type MensajeCliente =
   | { t: 'vozCancelar'; id: string }
   | { t: 'accion'; nombre: string; datos?: Record<string, unknown>; peticion?: string };
 
+// Lo que solo funciona en macOS por ahora (server/plataforma.ts, capacidades): en el resto se queda a la vista, apagado
+// y con su aviso. Va en la bienvenida; un servidor anterior no lo manda y entonces todo está, como siempre en macOS
+export interface Capacidades { superficie: boolean; dictado: boolean; spotify: boolean }
+export const AVISOS_CAPACIDAD: Record<keyof Capacidades, string> = {
+  superficie: 'Salir a la superficie aún no está disponible en Linux: llegará pronto.',
+  dictado: 'El dictado aún no está disponible en Linux: llegará pronto.',
+  spotify: 'La música con Spotify aún no está disponible en Linux: llegará pronto.',
+};
+/** Las capacidades de la bienvenida: solo un `false` explícito apaga una; lo que falte, disponible */
+export function capacidadesDe(c: unknown): Capacidades {
+  const x = (c && typeof c === 'object' ? c : {}) as Record<string, unknown>;
+  return { superficie: x.superficie !== false, dictado: x.dictado !== false, spotify: x.spotify !== false };
+}
+
 export type MensajeServidor =
-  | { t: 'bienvenida'; versionClaude?: string; claudeOk: boolean; estado: Record<string, unknown>; sesiones: ResumenSesion[]; repos: Record<string, InfoRepo>; demo: boolean }
+  | { t: 'bienvenida'; versionClaude?: string; claudeOk: boolean; estado: Record<string, unknown>; sesiones: ResumenSesion[]; repos: Record<string, InfoRepo>; demo: boolean; capacidades?: Capacidades }
   | { t: 'sesion'; sesion: ResumenSesion }
   | { t: 'sesionFuera'; sesionId: string }
   | { t: 'entradas'; sesionId: string; entradas: EntradaCuaderno[] }

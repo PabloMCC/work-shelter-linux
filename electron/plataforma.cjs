@@ -62,6 +62,10 @@ const teclasReenviadas = k => ({ code: k.code, key: k.key, shiftKey: !!k.shift, 
 
 // salir a la superficie: ⇧⌥⌘Esc en macOS, Mayús+Alt+Ctrl+Esc en Linux
 const PANICO = 'Shift+Alt+CommandOrControl+Escape';
+// en macOS esconde el juego y saca lo abierto a la superficie (iTerm o Terminal); en Linux eso aún no está y la tecla
+// solo lo esconde (lo abierto sigue en el juego)
+const panicoSacaASuperficie = (plataforma = process.platform) => plataforma === 'darwin';
+const etiquetaPanico = (plataforma = process.platform) => (panicoSacaASuperficie(plataforma) ? 'Salir a la superficie' : 'Esconder el juego');
 
 // fuera del juego solo se abren webs y correo: nada de file:, javascript: ni esquemas que lanzan otras apps
 const EXTERNOS = ['http:', 'https:', 'mailto:'];
@@ -70,4 +74,4 @@ function esEnlaceExterno(u) {
   try { return EXTERNOS.includes(new URL(u).protocol); } catch { return false; }
 }
 
-module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, esEnlaceExterno };
+module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };

@@ -47,10 +47,11 @@ export function atajoVentana(e: KeyboardEvent | React.KeyboardEvent, a: Acciones
   return true;
 }
 
-export function BotonesVentana({ maximizada, minimizar, alternarMaximizar, cerrar, queCierra, sacar, queSaca }: { maximizada: boolean; minimizar: () => void; alternarMaximizar: () => void; cerrar: () => void; queCierra: string; sacar?: () => void; queSaca?: string }) {
+// sacarApagado: el aviso de que salir a la superficie aún no está (fuera de macOS); el botón se ve apagado y al pulsarlo avisa
+export function BotonesVentana({ maximizada, minimizar, alternarMaximizar, cerrar, queCierra, sacar, queSaca, sacarApagado }: { maximizada: boolean; minimizar: () => void; alternarMaximizar: () => void; cerrar: () => void; queCierra: string; sacar?: () => void; queSaca?: string; sacarApagado?: string }) {
   return (
     <span className="botones-ventana">
-      {sacar && <button className="consola-x" onClick={sacar} title={`Sacar ${queSaca ?? 'esta pestaña'} a una terminal de tu escritorio (${CMD}${MAC ? '⇧' : ''}E)`}>↗</button>}
+      {sacar && <button className="consola-x" onClick={sacar} title={sacarApagado ?? `Sacar ${queSaca ?? 'esta pestaña'} a una terminal de tu escritorio (${CMD}${MAC ? '⇧' : ''}E)`} aria-disabled={!!sacarApagado || undefined} style={sacarApagado ? { opacity: .45 } : undefined}>↗</button>}
       <button className="consola-x" onClick={minimizar} title={`Minimizar a la barra de abajo (${CMD}↓): todo sigue en marcha`}>_</button>
       <button className="consola-x" onClick={alternarMaximizar} title={maximizada ? `Restaurar el tamaño (${CMD}↓)` : `Ampliar a toda la pantalla (${CMD}↑)`}>{maximizada ? '❐' : '▢'}</button>
       <button className="consola-x" onClick={cerrar} title={`Cerrar ${queCierra}${MAC ? ' (⌘⇧W)' : ''}`}>×</button>

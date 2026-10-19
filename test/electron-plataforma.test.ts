@@ -15,6 +15,8 @@ const p = createRequire(import.meta.url)('../electron/plataforma.cjs') as {
   REENVIADAS: readonly string[];
   teclasReenviadas(entrada: Entrada): { code?: string; key?: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean };
   PANICO: string;
+  panicoSacaASuperficie(plataforma: string): boolean;
+  etiquetaPanico(plataforma: string): string;
   esEnlaceExterno(url: unknown): boolean;
 };
 
@@ -141,5 +143,16 @@ describe('esEnlaceExterno', () => {
   });
   it('ni archivos, ni javascript:, ni esquemas que lanzan otras apps, ni basura', () => {
     for (const u of ['file:///etc/passwd', 'javascript:alert(1)', 'linear://x', 'zoommtg://x', 'smb://servidor/x', 'no es una url', '', undefined, 42]) expect(p.esEnlaceExterno(u)).toBe(false);
+  });
+});
+
+describe('tecla de pánico', () => {
+  it('en macOS esconde el juego y saca lo abierto a la superficie, como siempre', () => {
+    expect(p.panicoSacaASuperficie('darwin')).toBe(true);
+    expect(p.etiquetaPanico('darwin')).toBe('Salir a la superficie');
+  });
+  it('en Linux solo esconde el juego: salir a la superficie aún no está', () => {
+    expect(p.panicoSacaASuperficie('linux')).toBe(false);
+    expect(p.etiquetaPanico('linux')).toBe('Esconder el juego');
   });
 });

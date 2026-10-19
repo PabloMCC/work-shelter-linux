@@ -21,6 +21,7 @@ import { SFX } from '../audio/sonido';
 import { teclaFisica } from '../audio/teclado';
 import { MAC, siguienteZ, atajoVentana, BotonesVentana, Pestanas, Confirmacion } from './ventanas';
 import { sacarASuperficie } from './superficie';
+import { avisoCapacidad, useDisponible } from './capacidades';
 
 // una pestaña es un PTY; su id es el de la ventana (la primera) o el de la ventana con «::n» (las siguientes)
 // fuera: cuántas terminales de tu escritorio la tienen abierta (./shelter enganchar): es el mismo PTY, en los dos sitios
@@ -208,6 +209,7 @@ export function Terminales() {
 
 function VentanaTerminal({ v }: { v: VentanaTerm }) {
   const marco = useRef<HTMLDivElement>(null);
+  const superficie = useDisponible('superficie');
   const activa = v.pestanas.find(p => p.id === v.activa);
   // los atajos de ventana se cogen antes de que lleguen a la terminal (y al refugio)
   const atajos = (e: React.KeyboardEvent) => atajoVentana(e, {
@@ -235,7 +237,7 @@ function VentanaTerminal({ v }: { v: VentanaTerm }) {
       <div className="vt-cabeza" onPointerDown={arrastrar} onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) alternarMaximizar(v.id); }}>
         <span className="rejilla" /><span className={'piloto ' + (v.pestanas.some(p => !p.enPrompt) ? 'trabajando' : 'ociosa')} />
         <span className="vt-titulo">TERMINAL · {v.titulo}</span><span className="vt-ruta">{v.cwd}{activa?.programa ? ` · ${activa.programa}` : ''}{activa?.fuera ? ' · también en tu escritorio' : ''}</span>
-        <BotonesVentana sacar={() => sacarASuperficie({ terminales: [v.activa] })} queSaca="esta terminal (la misma, con lo que tenga en marcha)" maximizada={v.maximizada} minimizar={() => minimizar(v.id)} alternarMaximizar={() => alternarMaximizar(v.id)} cerrar={() => pedirCerrar(v.id)} queCierra="la terminal y todas sus pestañas" />
+        <BotonesVentana sacar={() => sacarASuperficie({ terminales: [v.activa] })} sacarApagado={superficie ? undefined : avisoCapacidad('superficie')} queSaca="esta terminal (la misma, con lo que tenga en marcha)" maximizada={v.maximizada} minimizar={() => minimizar(v.id)} alternarMaximizar={() => alternarMaximizar(v.id)} cerrar={() => pedirCerrar(v.id)} queCierra="la terminal y todas sus pestañas" />
       </div>
       <Pestanas items={v.pestanas.map(p => ({ id: p.id, nombre: (p.fuera ? '↗ ' : '') + (p.programa ?? nombreCarpeta(v.cwd)), piloto: p.enPrompt ? 'ociosa' : 'trabajando', titulo: (p.programa ? p.programa + ' en marcha' : 'En el prompt') + (p.fuera ? ' · también abierta en tu escritorio' : '') }))}
         activa={v.activa} activar={pid => activar(v.id, pid)} cerrar={pid => pedirCerrar(v.id, [pid])} nueva={() => nuevaPestana(v.id)} queAbre="Nueva pestaña en la misma carpeta" />

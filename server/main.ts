@@ -9,11 +9,11 @@ import { execFile, execFileSync } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { NOMBRE_JUEGO, type MensajeCliente, type MensajeServidor, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
+import { NOMBRE_JUEGO, AVISOS_CAPACIDAD, type MensajeCliente, type MensajeServidor, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
 import { Sesiones } from './sesiones.ts';
 import { Adjuntos } from './adjuntos.ts';
 import { abrirAdjunto, esPaquete } from './abrir.ts';
-import { lanzar, ordenesAbrirEn } from './plataforma.ts';
+import { lanzar, ordenesAbrirEn, capacidades } from './plataforma.ts';
 import { clonarEjemplos, pararClones, rutaEjemplo, esClonDeEjemplo } from './ejemplos.ts';
 import { mcpDecorado, PROMPT_ADAPTAR, type CtxDecorado } from './decoradoSala.ts';
 import { capturarSala } from './capturaSala.ts';
@@ -97,8 +97,10 @@ const sesiones = new Sesiones({
   carpetasConfiadas: () => ((almacen.estado.ajustes as any).carpetasConfiadas ?? []) as string[],
   confiar: ruta => { const a = almacen.estado.ajustes as any; a.carpetasConfiadas = [...new Set([...(a.carpetasConfiadas ?? []), path.resolve(ruta)])]; almacen.guardar(); },
 }, adjuntos);
+// lo que solo funciona en macOS: fuera, apagado con aviso (sin preparar el dictado ni sacar nada a la superficie)
+const CAPACIDADES = capacidades();
 const dictados = new Dictados(DATOS);
-dictados.preparar();
+if (CAPACIDADES.dictado) dictados.preparar();
 const terminales = new Terminales(cwd => !!salaDeRuta(cwd) || almacen.estado.salas.some(s => { const c = carpetaDe(s); return cwd === c || cwd.startsWith(c + path.sep); }), () => [...clientes].map(salidaDe));
 const integraciones = new Integraciones(almacen, (m) => difundir(m));
 
@@ -171,6 +173,11 @@ function apuntarAbiertas() {
 const SHELTER = path.join(RAIZ, 'shelter');
 const subiendo = new Set<string>();   // conversaciones que ya van camino de la superficie (no se abren dos veces)
 async function salirASuperficie(d: Record<string, any>) {
+  // sin ella (fuera de macOS) no se para nada: las conversaciones y las terminales siguen en el juego
+  if (!CAPACIDADES.superficie) {
+    difundir({ t: 'aviso', nivel: 'aviso', texto: AVISOS_CAPACIDAD.superficie });
+    return { sesiones: 0, terminales: 0, avisos: [AVISOS_CAPACIDAD.superficie], app: '' };
+  }
   const lista = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
   const idsSes = (d.todo ? sesiones.lista().filter(s => s.estado !== 'cerrada').map(s => s.id) : lista(d.sesiones)).filter(id => !subiendo.has(id));
   for (const id of idsSes) subiendo.add(id);
@@ -564,7 +571,7 @@ async function manejar(ws: WebSocket, m: MensajeCliente) {
   const e = almacen.estado;
   switch (m.t) {
     case 'hola':
-      enviar(ws, { t: 'bienvenida', versionClaude: sesiones.version, claudeOk: !!sesiones.claude, estado: e as any, sesiones: sesiones.lista(), repos, demo: Object.values(e.integraciones).every(i => i.modo === 'demo') });
+      enviar(ws, { t: 'bienvenida', versionClaude: sesiones.version, claudeOk: !!sesiones.claude, estado: e as any, sesiones: sesiones.lista(), repos, demo: Object.values(e.integraciones).every(i => i.modo === 'demo'), capacidades: CAPACIDADES });
       enviar(ws, { t: 'visitantes', visitantes: visitantes() });
       integraciones.saludar(ws, enviar);
       for (const t of terminales.abiertas()) terminales.abrir(t.id, t.cwd, 80, 24, salidaDe(ws));
@@ -576,7 +583,9 @@ async function manejar(ws: WebSocket, m: MensajeCliente) {
       break;
     }
     case 'enviar': sesiones.enviar(m.sesionId, String(m.texto ?? ''), adjuntos.describir(listaRutas(m.adjuntos))); break;
-    case 'vozEmpezar': dictados.empezar(String(m.id), String(m.idioma || 'es-ES'), ws, ev => enviar(ws, { t: 'voz', id: m.id, ...ev })); break;
+    case 'vozEmpezar':
+      if (!CAPACIDADES.dictado) { enviar(ws, { t: 'voz', id: String(m.id), estado: 'error', texto: AVISOS_CAPACIDAD.dictado }); break; }
+      dictados.empezar(String(m.id), String(m.idioma || 'es-ES'), ws, ev => enviar(ws, { t: 'voz', id: m.id, ...ev })); break;
     case 'vozAudio': dictados.audio(String(m.id), String(m.datos || '')); break;
     case 'vozFin': dictados.terminar(String(m.id)); break;
     case 'vozCancelar': dictados.cancelar(String(m.id)); break;
@@ -673,8 +682,9 @@ wss.on('connection', ws => {
     if (!clientes.size) temporizadorGracia = setTimeout(async () => {
       temporizadorGracia = null;
       // el juego se ha caído (nadie ha pulsado Salir: eso apaga al momento): lo que estaba abierto sale a tu escritorio
-      // en vez de perderse. Solo con la ventana del juego (./shelter o la app) y con los datos de verdad (o en la QA)
-      if (process.env.SHELTER_SALIR_SIN_CLIENTES && (!process.env.SHELTER_DATOS || process.env.SHELTER_ESCRITORIO_PRUEBA) && (sesiones.lista().some(s => s.estado !== 'cerrada') || terminales.abiertas().length)) {
+      // en vez de perderse. Solo con la ventana del juego (./shelter o la app), con los datos de verdad (o en la QA) y
+      // donde se puede salir a la superficie (en el resto, las conversaciones quedan guardadas para retomarlas)
+      if (process.env.SHELTER_SALIR_SIN_CLIENTES && CAPACIDADES.superficie && (!process.env.SHELTER_DATOS || process.env.SHELTER_ESCRITORIO_PRUEBA) && (sesiones.lista().some(s => s.estado !== 'cerrada') || terminales.abiertas().length)) {
         console.log('El juego se ha caído: saco a tu escritorio lo que estaba abierto.');
         const ids = terminales.abiertas().map(t => t.id);
         try { await salirASuperficie({ todo: true, ventanaNueva: true }); await esperarEnganches(ids); } catch (e) { console.error('No pude salir a la superficie:', (e as Error).message); }

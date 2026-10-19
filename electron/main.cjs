@@ -141,7 +141,8 @@ function panico() {
   silenciar(true);
   if (ventana.isFullScreen()) ventana.setFullScreen(false);
   ventana.hide(); app.hide(); if (app.dock) app.dock.hide();
-  if (!origen) return;
+  // fuera de macOS solo se esconde: salir a la superficie aún no está
+  if (!origen || !plataforma.panicoSacaASuperficie(process.platform)) return;
   // se lo pide al juego; si la página no contesta (colgada), al servidor con ./shelter superficie
   const pagina = ventana.webContents.executeJavaScript('window.__superficie ? window.__superficie() : Promise.reject(new Error("sin juego"))');
   const plazo = new Promise((_, ko) => setTimeout(() => ko(new Error('el juego no contesta')), 2500));
@@ -287,7 +288,7 @@ async function arrancar() {
 
 // el menú lleva la tecla de pánico; la registra él (y solo vale dentro de la ventana) cuando no hay atajo global, que si
 // no se dispararía dos veces
-const ponerMenu = (registrarPanico = false) => Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'work-shelter', submenu: [{ role: 'about', label: 'Acerca de work-shelter' }, { type: 'separator' }, { label: 'Salir a la superficie', accelerator: PANICO, registerAccelerator: registrarPanico, click: panico }, { type: 'separator' }, { role: 'reload', label: 'Recargar' }, { role: 'toggleDevTools', label: 'Herramientas de desarrollo' }, { role: 'togglefullscreen', label: 'Pantalla completa' }, { type: 'separator' }, { role: 'quit', label: 'Salir' }] }, { role: 'editMenu', label: 'Edición' }]));
+const ponerMenu = (registrarPanico = false) => Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'work-shelter', submenu: [{ role: 'about', label: 'Acerca de work-shelter' }, { type: 'separator' }, { label: plataforma.etiquetaPanico(process.platform), accelerator: PANICO, registerAccelerator: registrarPanico, click: panico }, { type: 'separator' }, { role: 'reload', label: 'Recargar' }, { role: 'toggleDevTools', label: 'Herramientas de desarrollo' }, { role: 'togglefullscreen', label: 'Pantalla completa' }, { type: 'separator' }, { role: 'quit', label: 'Salir' }] }, { role: 'editMenu', label: 'Edición' }]));
 ponerMenu();
 // La caché HTTP del juego se vacía al abrir: lo que se vea es siempre lo que hay ahora en el repo (el servidor está en
 // este mismo equipo, recargarlo no cuesta). Solo la del juego: las sesiones de los navegadores no se tocan.

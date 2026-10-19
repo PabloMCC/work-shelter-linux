@@ -11,6 +11,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Almacen } from './almacen';
 import { SFX } from '../audio/sonido';
+import { avisarNoDisponible, disponible } from './capacidades';
 import { siguienteZ, atajoVentana, BotonesVentana } from './ventanas';
 import { esAtajo, etiquetaAtajo, atajoNavegador, teclasDeElectron, type Reenviadas } from './teclas';
 
@@ -80,6 +81,8 @@ export const sitioDeUrl = (url: string) => { try { const h = new URL(url).hostna
 export function abrirNavegador(sitioId: string, url?: string) {
   const s = SITIOS[sitioId]; if (!s) { SFX.noPermitido(); return; }
   if (!EN_ELECTRON) { window.open(url ?? s.inicio, '_blank'); SFX.clic(); return; }
+  // Spotify suena en su Google Chrome, que de momento solo se busca en macOS: fuera de él, el aviso (también con J y ⌘J)
+  if (s.remoto && !disponible('spotify')) { avisarNoDisponible('spotify'); return; }
   if (ventana(s.id)) { if (url) { if (s.remoto) ordenRemota('navegar', url).catch(() => {}); else webviews.get(s.id)?.loadURL(url).catch(() => {}); } alFrente(s.id); return; }
   crear(s.id, url ?? s.inicio, false, false);
   SFX.abrir(); enfocar(s.id);

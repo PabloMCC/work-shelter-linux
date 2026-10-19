@@ -32,6 +32,7 @@ import { CMD, siguienteZ, atajoVentana, BotonesVentana, Pestanas, Confirmacion }
 import { CTRL } from './teclas';
 import { duenoSesion, interlocutor, rotuloRama } from './copias';
 import { sacarASuperficie } from './superficie';
+import { avisoCapacidad, useDisponible } from './capacidades';
 import { type AdjuntoLocal, subirArchivos, elegirArchivos, subiendo, rutasListas, BandejaAdjuntos, AdjuntosEnviados, useDictado, BotonesEntrada, TiraDictado, atajoAdjuntar } from './entrada';
 
 type Vista = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: ElementoHistorial } | { tipo: 'historial' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -291,6 +292,7 @@ function Consola({ h, v }: { h: ResumenHabitante; v: VentanaCom }) {
   const sesiones = vivo.usar(e => e.sesiones);
   const conectado = vivo.usar(e => e.conectado);
   const claudeOk = vivo.usar(e => e.claudeOk);
+  const superficie = useDisponible('superficie');
   const repo = vivo.usar(e => e.repos[h.sala]);
   const copia = h.copia;
   const p = v.pestanas.find(x => x.id === v.activa) ?? v.pestanas[0];
@@ -332,7 +334,7 @@ function Consola({ h, v }: { h: ResumenHabitante; v: VentanaCom }) {
           <span className="rejilla" aria-hidden />
           <span className={'piloto ' + (peor?.estado ?? 'apagado')} aria-hidden />
           <span className="consola-rotulo">{copia ? <>INTERCOMUNICADOR · COPIA HOLOGRÁFICA DE {copia.autorNombre.toUpperCase()} · {rotuloRama(copia.rama)} · {h.salaNombre}</> : <>INTERCOMUNICADOR · {h.nombre} · {h.salaNombre}</>}</span>
-          <BotonesVentana sacar={s ? () => sacarPestana(hid, p.id) : undefined} queSaca="esta conversación" maximizada={v.maximizada} minimizar={minimizarIntercom} alternarMaximizar={() => alternarMaximizar(hid)} cerrar={() => pedirCerrar(hid)} queCierra="el intercomunicador y sus conversaciones" />
+          <BotonesVentana sacar={s ? () => sacarPestana(hid, p.id) : undefined} sacarApagado={superficie ? undefined : avisoCapacidad('superficie')} queSaca="esta conversación" maximizada={v.maximizada} minimizar={minimizarIntercom} alternarMaximizar={() => alternarMaximizar(hid)} cerrar={() => pedirCerrar(hid)} queCierra="el intercomunicador y sus conversaciones" />
         </div>
         <Pestanas items={items} activa={v.activa} activar={pid => activar(hid, pid)} cerrar={pid => pedirCerrar(hid, [pid])} nueva={() => nuevaPestana(hid)} queAbre={copia ? 'Pestaña nueva: otro trabajo dentro de esta copia' : 'Pestaña nueva: otro trabajo con este habitante'} />
         <div className="consola-cuerpo">

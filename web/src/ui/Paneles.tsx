@@ -20,6 +20,7 @@ import { sacarASuperficie } from './superficie';
 import { abrirBuscador } from './Buscador';
 import { terminales as terminalesAbiertas } from './Terminales';
 import { MAC, CMD, etiquetaAtajo } from './teclas';
+import { avisoCapacidad, avisarNoDisponible, useDisponible, type Capacidad } from './capacidades';
 
 export const abrirPanel = (panel: Panel, panelDatos: any = null) => { juego.set({ panel, panelDatos }); };
 // lo que se abre desde el menú de Esc vuelve a él al salir (Esc o ×); abierto con su tecla, se cierra sin más
@@ -265,6 +266,8 @@ function Ocupados() {
 }
 
 // ---------------------------------------------------------------- ayuda: todos los controles
+// una fila de la ayuda; con capacidad, lo que solo funciona en macOS (fuera, la fila dice que llegará)
+type FilaAyuda = [string, string, Capacidad?];
 const CONTROLES: [string, string][] = [
   ['WASD / flechas', 'andar; mantenidas, corre (Shift: correr ya)'], ['W / S en el rellano', 'subir y bajar en ascensor'], ['E / Enter', 'hablar, usar, avanzar, elegir'],
   ['clic', 'ir a un sitio; clic en un habitante: ir y hablar'], ['rueda / Z / − =', 'zoom, vista general y vista de sala'],
@@ -275,24 +278,24 @@ const CONTROLES: [string, string][] = [
   [etiquetaAtajo('KeyK'), 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
   ['Esc', 'cierra lo abierto; en el refugio, el menú del juego: opciones, atajos, reiniciar, salir a la superficie y salir'],
 ];
-const CONTROLES_DIALOGO: [string, string][] = [
+const CONTROLES_DIALOGO: FilaAyuda[] = [
   ['Enter', 'enviar (Shift+Enter: salto de línea)'], ['/', 'menú de comandos de Claude Code con autocompletado'],
   ['/btw pregunta', 'pregunta lateral sin interrumpir el trabajo'], ['Ctrl+↑↓, RePág/AvPág', 'desplazar la conversación mientras escribes'],
   ['Ctrl+C', 'parar al habitante (también /stop)'], ['Esc', 'atrás; en la conversación borra lo escrito; arriba del todo, vuelves al refugio y el trabajo sigue'],
   ['← en los menús', 'atrás'], ['pegar, arrastrar · ⌘U · 📎', 'adjuntar capturas, imágenes o archivos (las imágenes las ve directamente)'],
-  ['⌘D · 🎙', 'dictar: habla y pulsa Espacio (o ⌘D otra vez) para terminar; Enter termina y envía, Esc descarta. Lo transcribe macOS en tu Mac (idioma en Opciones)'],
+  ['⌘D · 🎙', 'dictar: habla y pulsa Espacio (o ⌘D otra vez) para terminar; Enter termina y envía, Esc descarta. Lo transcribe macOS en tu Mac (idioma en Opciones)', 'dictado'],
   ['1 / 2 / 3 en permisos', 'permitir, permitir siempre en la sesión, denegar'],
   ['repo con configuración propia', 'si trae .claude/, .mcp.json o CLAUDE.md y no te fías aún de él, pregunta antes de empezar: 1 cargarla esta vez, 2 siempre para esa carpeta, 3 trabajar sin ella (sin sus hooks, MCP ni instrucciones)'],
 ];
-const CONTROLES_VENTANA: [string, string][] = [
+const CONTROLES_VENTANA: FilaAyuda[] = [
   ['⌘T', 'pestaña nueva: otro trabajo con el mismo habitante, u otro shell en la terminal'],
   [MAC ? '⌘W / ⌘⇧W' : etiquetaAtajo('KeyW', { clase: 'refugio' }), `cerrar la pestaña${MAC ? ' / la ventana' : ''}; con algo en marcha, pregunta antes`], ['⌘1…⌘9, ⌃Tab', 'cambiar de pestaña'],
   [`${CMD}↓ · ${etiquetaAtajo('KeyM')} · _`, 'minimizar a la barra de abajo a la izquierda; todo sigue y al volver se ve igual'],
   ['⌘↑ · ▢', 'pantalla completa (⌘↓ la restaura; también doble clic en la cabecera)'],
   [`${etiquetaAtajo('KeyB')} (B en el refugio)`, 'barra de ventanas con el teclado: ←→ elegir, ↑↓ fila, Intro abrir, X cerrar, M minimizar, Esc salir'],
-  [`${etiquetaAtajo('KeyJ')} (J en el refugio)`, 'la música: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina, la despliega en mano: Espacio ⏯, ←→ ±10 s, ⇧←→ temas, ↑↓ volumen, Intro abre Spotify, Esc salir'],
+  [`${etiquetaAtajo('KeyJ')} (J en el refugio)`, 'la música: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina, la despliega en mano: Espacio ⏯, ←→ ±10 s, ⇧←→ temas, ↑↓ volumen, Intro abre Spotify, Esc salir', 'spotify'],
   ['Esc y Ctrl+C en la terminal', 'van al programa, como en iTerm: paran a Claude Code o salen de él'],
-  ['⌘⇧E · ↗', 'sacar la pestaña a una terminal de tu escritorio (ver «A la superficie»)'],
+  ['⌘⇧E · ↗', 'sacar la pestaña a una terminal de tu escritorio (ver «A la superficie»)', 'superficie'],
 ];
 // Salir a la superficie: lo del juego sigue en iTerm (o Terminal) cuando el juego se cae o no conviene que se vea
 const CONTROLES_SUPERFICIE: [string, string][] = [
@@ -314,13 +317,15 @@ const CONTROLES_GIT: [string, string][] = [
 ];
 function Ayuda() {
   useTeclas(e => { if (e.code === 'Escape' || e.code === 'F1' || e.code === 'Enter') volver(); });
+  const hay: Record<Capacidad, boolean> = { superficie: useDisponible('superficie'), dictado: useDisponible('dictado'), spotify: useDisponible('spotify') };
+  const filas = (l: FilaAyuda[]) => l.map(([k, v, c]) => <React.Fragment key={k}><dt>{k}</dt><dd>{c && !hay[c] ? avisoCapacidad(c) : v}</dd></React.Fragment>);
   return (
     <Aparato rotulo="MANUAL DEL SUPERVISOR" ancho={64} alto alCerrar={volver}>
       <div className="lista-desplazable ayuda-columnas">
         <section><h3>En el refugio</h3><dl className="tabla-teclas">{CONTROLES.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
-          <h3>A la superficie (fuera del juego)</h3><dl className="tabla-teclas">{CONTROLES_SUPERFICIE.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl></section>
-        <section><h3>Hablando con un habitante</h3><dl className="tabla-teclas">{CONTROLES_DIALOGO.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
-          <h3>Intercomunicadores y terminales</h3><dl className="tabla-teclas">{CONTROLES_VENTANA.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
+          <h3>A la superficie (fuera del juego)</h3>{hay.superficie ? <dl className="tabla-teclas">{CONTROLES_SUPERFICIE.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl> : <p>{avisoCapacidad('superficie')}</p>}</section>
+        <section><h3>Hablando con un habitante</h3><dl className="tabla-teclas">{filas(CONTROLES_DIALOGO)}</dl>
+          <h3>Intercomunicadores y terminales</h3><dl className="tabla-teclas">{filas(CONTROLES_VENTANA)}</dl>
           <h3>Cliente de git</h3><dl className="tabla-teclas">{CONTROLES_GIT.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
           <h3>Señales</h3>
           <dl className="tabla-teclas">
@@ -330,7 +335,7 @@ function Ayuda() {
             <dt><span className="glifo-estado trabajando" /> fósforo</dt><dd>trabajando (las pantallas, el vapor y la luz de la sala lo cuentan)</dd>
             <dt>robots pequeños</dt><dd>ayudantes (subagentes) en la sala cuyos archivos tocan</dd>
             <dt>DEMO</dt><dd>esa integración muestra datos simulados; se configura en la cámara acorazada</dd>
-            <dt>pletina</dt><dd>abajo a la izquierda con Spotify minimizado: lo que suena, mandos, progreso y volumen; el disco la pliega</dd>
+            <dt>pletina</dt><dd>{hay.spotify ? 'abajo a la izquierda con Spotify minimizado: lo que suena, mandos, progreso y volumen; el disco la pliega' : avisoCapacidad('spotify')}</dd>
           </dl></section>
       </div>
       <Teclas><kbd>Esc</kbd>cerrar</Teclas>
@@ -377,6 +382,7 @@ function MenuJuego() {
   const vivas = Object.values(vivo.usar(e => e.sesiones)).filter(s => s.estado !== 'cerrada').length;
   const terms = terminalesAbiertas.usar(e => e.lista.length);
   const algo = vivas + terms > 0;
+  const superficie = useDisponible('superficie');
   const sub = (p: Panel) => () => { SFX.clic(); abrirPanel(p, { desde: 'menu' }); };
   const items: (ItemMenu & { f: () => void })[] = [
     { texto: 'Volver al refugio', pista: 'Esc', f: cerrarPanel },
@@ -384,7 +390,7 @@ function MenuJuego() {
     { texto: 'Opciones', pista: 'sonido e idioma del dictado', f: sub('opciones') },
     { texto: 'Atajos de teclado', pista: 'F1', f: sub('ayuda') },
     { texto: 'Reiniciar el juego', pista: 'aplica los cambios del servidor; las terminales siguen', f: sub('reiniciar') },
-    { texto: 'Salir a la superficie', pista: algo ? 'todo lo abierto, a tu escritorio (⇧⌥⌘Esc)' : 'no hay nada abierto que sacar', apagado: !algo, f: () => { if (!algo) { SFX.noPermitido(); return; } cerrarPanel(); sacarASuperficie({ todo: true }); } },
+    { texto: 'Salir a la superficie', pista: !superficie ? avisoCapacidad('superficie') : algo ? 'todo lo abierto, a tu escritorio (⇧⌥⌘Esc)' : 'no hay nada abierto que sacar', apagado: !superficie || !algo, f: () => { if (!superficie) { avisarNoDisponible('superficie'); return; } if (!algo) { SFX.noPermitido(); return; } cerrarPanel(); sacarASuperficie({ todo: true }); } },
     { texto: 'Salir del refugio', peligro: true, f: sub('salir') },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());

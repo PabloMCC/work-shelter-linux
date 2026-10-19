@@ -38,7 +38,8 @@ Object.assign(window as any, { __juego: juego, __cliente: cliente, __vivo: vivo,
 (window as any).__salirRefugio = () => new Promise<void>(ok => { cliente.enviar({ t: 'salir' }); setTimeout(ok, 300); });
 // tecla de pánico (Electron): lo abierto sale a tu escritorio. Contesta al momento; si no hay conexión, Electron se lo
 // pide al servidor por su cuenta (./shelter superficie)
-(window as any).__superficie = () => { if (!vivo.get().conectado) return Promise.reject(new Error('Sin conexión')); cliente.accion('superficie.sacar', { todo: true, ventanaNueva: true }).catch(() => {}); return Promise.resolve(true); };
+// (fuera de macOS aún no está: contesta que no sin pedir nada, y Electron no recurre al servidor)
+(window as any).__superficie = () => { if (!vivo.get().capacidades.superficie) return Promise.resolve(false); if (!vivo.get().conectado) return Promise.reject(new Error('Sin conexión')); cliente.accion('superficie.sacar', { todo: true, ventanaNueva: true }).catch(() => {}); return Promise.resolve(true); };
 motor.arrancar();
 // fuera de primer plano el motor deja de pintar y la interfaz deja de animarse
 vigilarPrimerPlano(activo => motor.alCambiarPrimerPlano(activo));
