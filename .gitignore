@@ -24,3 +24,11 @@ secrets*
 
 # Node portátil que descarga ./shelter si no hay uno
 /.runtime/
+
+# Skills de agentes instaladas con autoskills: contenido de terceros con licencias variadas, no se redistribuye.
+# skills-lock.json (versionado) fija cuáles y con qué huella; se regeneran con:
+#   npx autoskills@0.4.1 -y -a claude-code
+#   rm -r .agents/skills/seo .claude/skills/seo && git checkout skills-lock.json
+# (la de seo se quita porque no aplica a una app de escritorio; el lock versionado ya no la incluye)
+/.agents/
+/.claude/skills/
