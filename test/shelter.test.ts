@@ -27,22 +27,15 @@ const unameFalso = () => {
   chmodSync(f, 0o755);
 };
 // bash con plataforma.sh cargado; sin `real`, el PATH solo tiene los programas falsos
-const bash = (orden: string, o: { s?: string; m?: string; real?: boolean; entrada?: string } = {}) => {
+const bash = (orden: string, o: { s?: string; m?: string; real?: boolean; entrada?: string; env?: Record<string, string> } = {}) => {
   unameFalso();
   const r = spawnSync('/bin/bash', ['-c', `source "${PLATAFORMA}"; ${orden}`], {
     encoding: 'utf8', input: o.entrada ?? '',
-    env: { PATH: o.real ? `${process.env.PATH}` : dir, REG: reg, FALSO_S: o.s ?? 'Linux', FALSO_M: o.m ?? 'x86_64' },
+    env: { PATH: o.real ? `${process.env.PATH}` : dir, REG: reg, FALSO_S: o.s ?? 'Linux', FALSO_M: o.m ?? 'x86_64', ...o.env },
   });
   return { codigo: r.status, salida: r.stdout.trim(), error: r.stderr.trim() };
 };
 const registro = () => (existsSync(reg) ? readFileSync(reg, 'utf8').trim().split('\n') : []);
-
-const SUMAS: Record<string, string> = {
-  'darwin-arm64': 'cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949',
-  'darwin-x64': '00df9c5df3e4ec6848c26b70fb47bf96492f342f4bed6b17f12d99b3a45eeecc',
-  'linux-arm64': '4181609e03dcb9880e7e5bf956061ecc0503c77a480c6631d868cb1f65a2c7dd',
-  'linux-x64': 'eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29',
-};
 
 describe('sintaxis', () => {
   it('shelter y plataforma.sh pasan bash -n', () => {
@@ -71,14 +64,24 @@ describe('so_node y arq_node', () => {
 });
 
 describe('suma_node', () => {
-  it('da la suma oficial de cada combinación', () => {
-    for (const [clave, suma] of Object.entries(SUMAS)) {
-      const [so, arq] = clave.split('-');
-      expect(bash(`suma_node ${so} ${arq}`)).toMatchObject({ codigo: 0, salida: suma });
+  // las sumas viven solo en plataforma.sh: aquí, dos comprobadas a mano contra SHASUMS256.txt y el formato de todas
+  it('da la suma oficial de la versión de ./shelter para cada combinación', () => {
+    const version = /^NODO_VERSION="([^"]+)"/m.exec(readFileSync(path.join(RAIZ, 'shelter'), 'utf8'))?.[1];
+    const sumas = new Set<string>();
+    for (const par of ['darwin arm64', 'darwin x64', 'linux arm64', 'linux x64']) {
+      const r = bash(`suma_node ${version} ${par}`);
+      expect(r.codigo).toBe(0); expect(r.salida).toMatch(/^[0-9a-f]{64}$/); sumas.add(r.salida);
     }
+    expect(sumas.size).toBe(4);
+    expect(bash('suma_node 22.20.0 linux x64').salida).toBe('eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29');
+    expect(bash('suma_node 22.20.0 darwin arm64').salida).toBe('cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949');
+  });
+  it('otra versión sin sus sumas se niega antes de descargar, con un mensaje que la nombra', () => {
+    const r = bash('suma_node 22.21.0 linux x64');
+    expect(r.codigo).not.toBe(0); expect(r.salida).toBe(''); expect(r.error).toContain('22.21.0');
   });
   it('sin suma conocida se niega (nunca se descarga nada sin comprobar)', () => {
-    for (const par of ['linux riscv64', 'win x64', 'darwin', '']) {
+    for (const par of ['22.20.0 linux riscv64', '22.20.0 win x64', '22.20.0 darwin', 'linux x64', '']) {
       const r = bash(`suma_node ${par}`);
       expect(r.codigo).not.toBe(0); expect(r.salida).toBe('');
     }
@@ -152,5 +155,87 @@ describe('abrir_url', () => {
     falso('xdg-open', 3);
     const r = bash(`abrir_url "${URL}"`, { s: 'Linux' });
     expect(r.codigo).toBe(0); expect(r.salida).toContain(URL); expect(registro()).toEqual([`xdg-open ${URL}`]);
+  });
+});
+
+describe('instalar_app_disponible (la puerta de ./shelter instalar-app)', () => {
+  it('en macOS deja pasar sin decir nada', () => {
+    expect(bash('instalar_app_disponible', { s: 'Darwin' })).toMatchObject({ codigo: 0, salida: '', error: '' });
+  });
+  it('en Linux sale con 1 y explica cómo abrirlo mientras tanto', () => {
+    const r = bash('instalar_app_disponible', { s: 'Linux' });
+    expect(r.codigo).toBe(1); expect(r.error).toContain('instalar-app'); expect(r.error).toContain('./shelter');
+  });
+  it('en un sistema desconocido también se niega', () => {
+    expect(bash('instalar_app_disponible', { s: 'FreeBSD' }).codigo).not.toBe(0);
+  });
+  it('./shelter la consulta antes de preparar nada (antes de Node, dependencias y descargas)', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const puerta = t.indexOf('instalar_app_disponible || exit 1');
+    expect(puerta).toBeGreaterThan(0);
+    for (const paso of ['# 1. Node', 'curl ', 'npm', 'install.js']) expect(puerta).toBeLessThan(t.indexOf(paso));
+    expect(t).not.toMatch(/uname -s/);
+  });
+});
+
+describe('carpeta_registros', () => {
+  it('en macOS, ~/Library/Logs/work-shelter-public', () => {
+    expect(bash('carpeta_registros', { s: 'Darwin', env: { HOME: '/casa', XDG_STATE_HOME: '/estado' } }).salida).toBe('/casa/Library/Logs/work-shelter-public');
+  });
+  it('en Linux, $XDG_STATE_HOME/work-shelter-public si es absoluto; si no, ~/.local/state', () => {
+    expect(bash('carpeta_registros', { env: { HOME: '/casa', XDG_STATE_HOME: '/estado' } }).salida).toBe('/estado/work-shelter-public');
+    expect(bash('carpeta_registros', { env: { HOME: '/casa' } }).salida).toBe('/casa/.local/state/work-shelter-public');
+    expect(bash('carpeta_registros', { env: { HOME: '/casa', XDG_STATE_HOME: 'relativa' } }).salida).toBe('/casa/.local/state/work-shelter-public');
+    expect(bash('carpeta_registros', { env: { HOME: '/casa', XDG_STATE_HOME: '' } }).salida).toBe('/casa/.local/state/work-shelter-public');
+  });
+});
+
+describe('electron_binario', () => {
+  const nodoFalso = (cuerpo: string) => { const f = path.join(dir, 'node'); writeFileSync(f, `#!/bin/bash\n${cuerpo}\n`); chmodSync(f, 0o755); };
+  it('da la ruta que devuelve require(\'electron\')', () => {
+    nodoFalso('echo "/repo/node_modules/electron/dist/electron"');
+    expect(bash('electron_binario node')).toMatchObject({ codigo: 0, salida: '/repo/node_modules/electron/dist/electron' });
+  });
+  it('vacía y sin error si el paquete aún no tiene su binario', () => {
+    nodoFalso('echo "Error: Electron failed to install correctly" >&2; exit 1');
+    expect(bash('electron_binario node')).toMatchObject({ codigo: 0, salida: '', error: '' });
+  });
+});
+
+describe('registro_pide_sandbox', () => {
+  const con = (texto: string) => { const f = path.join(dir, 'electron.log'); writeFileSync(f, texto); return bash(`registro_pide_sandbox "${f}"`, { real: true }).codigo; };
+  it('reconoce el aislamiento de Chromium bloqueado (SUID o espacios de nombres de usuario)', () => {
+    expect(con("[1:FATAL:setuid_sandbox_host.cc] The SUID sandbox helper binary was found, but is not configured correctly. You need to make sure that /x/chrome-sandbox is owned by root and has mode 4755.\n")).toBe(0);
+    expect(con('[1:FATAL:zygote_host_impl_linux.cc] No usable sandbox! If you are running on Ubuntu 23.10+ or another Linux distro that has disabled unprivileged user namespaces with AppArmor...\n')).toBe(0);
+  });
+  it('otros fallos o un registro que no existe no dan la pista', () => {
+    expect(con('Error: Cannot find module electron/main.cjs\n')).not.toBe(0);
+    expect(bash(`registro_pide_sandbox "${path.join(dir, 'no-existe')}"`, { real: true }).codigo).not.toBe(0);
+  });
+});
+
+describe('ventana_electron', () => {
+  const electronFalso = (cuerpo: string) => { const f = path.join(dir, 'electron'); writeFileSync(f, `#!/bin/bash\n${cuerpo}\n`); chmodSync(f, 0o755); return f; };
+  const lanzar = (cuerpo: string, env: Record<string, string> = {}) => {
+    const bin = electronFalso(cuerpo), log = path.join(dir, 'electron.log');
+    const r = bash(`SHELTER_URL=http://x ventana_electron "${bin}" "${log}" electron/main.cjs`, { real: true, env });
+    return { ...r, log: existsSync(log) ? readFileSync(log, 'utf8') : '' };
+  };
+  it('si se cierra bien, 0 y su salida queda en el registro (con el entorno y los argumentos)', () => {
+    const r = lanzar('echo "url=$SHELTER_URL args=$*"');
+    expect(r).toMatchObject({ codigo: 0, error: '' }); expect(r.log).toContain('url=http://x args=electron/main.cjs');
+  });
+  it('si cae nada más abrir, 1 y dice dónde está el registro (el lanzador abre entonces el navegador)', () => {
+    const r = lanzar('echo "algo fue mal" >&2; exit 5');
+    expect(r.codigo).toBe(1); expect(r.error).toContain(path.join(dir, 'electron.log')); expect(r.log).toContain('algo fue mal');
+    expect(r.error).not.toMatch(/sandbox/i);
+  });
+  it('si cae por el aislamiento bloqueado, añade la pista sin proponer quitarlo', () => {
+    const r = lanzar('echo "No usable sandbox! ... unprivileged user namespaces with AppArmor" >&2; exit 133');
+    expect(r.codigo).toBe(1); expect(r.error).toMatch(/aislamiento/); expect(r.error).toMatch(/diagnóstico/); expect(r.error).not.toMatch(/no-sandbox/);
+  });
+  it('un fallo tras usarla un rato no abre el navegador: solo avisa del registro', () => {
+    const r = lanzar('exit 3', { MARGEN_ELECTRON: '0' });
+    expect(r.codigo).toBe(0); expect(r.error).toContain('electron.log');
   });
 });

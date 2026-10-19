@@ -18,17 +18,13 @@ rojo() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 INSTALAR_APP=""
 case "${1:-}" in superficie|enganchar) SUBORDEN=1 ;; instalar-app) SUBORDEN=""; INSTALAR_APP=1; shift; echo "== work-shelter ==" ;; *) SUBORDEN=""; echo "== work-shelter ==" ;; esac
 # la app de instalar-app es solo de macOS: fuera de él se avisa antes de preparar nada
-if [ -n "$INSTALAR_APP" ] && [ "$(uname -s)" != "Darwin" ]; then
-  rojo "El acceso en el menú de aplicaciones aún no está disponible en este sistema (instalar-app solo crea la app de macOS)."
-  rojo "  Mientras tanto, abre work-shelter desde una terminal en esta carpeta con: ./shelter"
-  exit 1
-fi
+if [ -n "$INSTALAR_APP" ]; then instalar_app_disponible || exit 1; fi
 
 # 1. Node 22+ (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
 if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
   NODE="$(command -v node)"; NPM="$(command -v npm)"
 else
-  SO="$(so_node)"; ARQ="$(arq_node)"; SUMA="$(suma_node "$SO" "$ARQ")"
+  SO="$(so_node)"; ARQ="$(arq_node)"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
   DIR=".runtime/node-v$NODO_VERSION-$SO-$ARQ"
   if [ ! -x "$DIR/bin/node" ]; then
     amarillo "No encuentro Node 22 o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
@@ -64,12 +60,11 @@ fi
 
 # 3b. Binario de Electron (la ventana del juego): este paquete lo descarga aparte. Su ruta la da el propio paquete
 # (Electron.app/Contents/MacOS/Electron en macOS, dist/electron en Linux); vacía si aún no está descargado
-electron_binario() { "$NODE" -p "require('electron')" 2>/dev/null || true; }
-ELECTRON="$(electron_binario)"
+ELECTRON="$(electron_binario "$NODE")"
 if [ -z "$ELECTRON" ] || [ ! -x "$ELECTRON" ]; then
   amarillo "Descargando la ventana del juego (Electron, solo la primera vez)…"
   "$NODE" node_modules/electron/install.js || amarillo "No se pudo descargar Electron: work-shelter se abrirá en el navegador."
-  ELECTRON="$(electron_binario)"
+  ELECTRON="$(electron_binario "$NODE")"
 fi
 
 # 4. Material artístico CC0 (fijado por commit)
@@ -132,7 +127,14 @@ if [ -n "${SHELTER_SIN_VENTANA:-}" ]; then
   echo "Abre: $URL"
   [ -n "$SERVIDOR_PID" ] && wait $SERVIDOR_PID
 elif [ -n "$ELECTRON" ] && [ -x "$ELECTRON" ]; then
-  SHELTER_URL="$URL" SHELTER_CDP="${SHELTER_CDP:-}" SHELTER_DEV="${SHELTER_DEV:-}" "$ELECTRON" electron/main.cjs >/dev/null 2>&1 || true
+  # su salida, al registro (solo legible por ti, el de la última vez); si cae nada más abrir, el navegador
+  LOG="$(carpeta_registros)/electron.log"
+  ( umask 077; mkdir -p "${LOG%/*}" && : > "$LOG" ) 2>/dev/null || LOG=/dev/null
+  if ! SHELTER_URL="$URL" SHELTER_CDP="${SHELTER_CDP:-}" SHELTER_DEV="${SHELTER_DEV:-}" ventana_electron "$ELECTRON" "$LOG" electron/main.cjs; then
+    amarillo "Abro work-shelter en el navegador."
+    abrir_url "$URL"
+    [ -n "$SERVIDOR_PID" ] && wait $SERVIDOR_PID
+  fi
 else
   amarillo "No encuentro Electron; abro work-shelter en el navegador."
   abrir_url "$URL"

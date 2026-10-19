@@ -23,8 +23,10 @@ export const MAX_IMAGEN = 3.5 * 1024 * 1024;     // la API admite 5 MB en base64
 /** Las que la API admite tal cual (si caben), por extensión */
 export const DIRECTAS: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
 const POR_FORMATO: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
-// lo que sharp no lee y pasa antes por el programa del sistema
-const necesitaDecodificador = (ruta: string) => ['.heic', '.heif', '.bmp'].includes(path.extname(ruta).toLowerCase());
+const extension = (ruta: string) => path.extname(ruta).toLowerCase();
+// lo que sharp no lee y pasa antes por el programa del sistema; del BMP solo hay programa en macOS (sips)
+const necesitaDecodificador = (ruta: string) => ['.heic', '.heif', '.bmp'].includes(extension(ruta));
+const sinDecodificadorEnLinux = (ruta: string) => extension(ruta) === '.bmp';
 
 /** Cómo se carga sharp; en los tests, uno que falla como cuando su binario nativo no existe para este sistema */
 export type CargarSharp = () => Promise<typeof SharpT>;
@@ -34,33 +36,40 @@ const ejecutarReal = (o: Orden) => new Promise<void>((ok, ko) => execFile(o.bin,
 const cargarReal: CargarSharp = async () => (await import('sharp')).default;
 
 // una carga por cargador (en producción, una sola); si falla, un aviso y null para siempre. El aviso no lleva el error:
-// trae rutas de la instalación
+// trae rutas de la instalación. Si carga pero no se deja limitar a la lista blanca, tampoco se usa (falla cerrado)
 const cargas = new WeakMap<CargarSharp, Promise<typeof SharpT | null>>();
 function conSharp(cargar: CargarSharp = cargarReal) {
   let carga = cargas.get(cargar);
   if (!carga) {
     carga = (async () => {
-      try {
-        const s = await cargar();
-        s.block({ operation: ['VipsForeignLoad'] });
-        s.unblock({ operation: ['Jpeg', 'Png', 'Webp', 'Gif', 'Nsgif', 'Tiff'].flatMap(f => [`VipsForeignLoad${f}File`, `VipsForeignLoad${f}Buffer`]) });
-        s.cache(false);   // servidor de larga vida y pocas imágenes: sin caché que crezca
-        return s;
-      } catch {
+      let s: typeof SharpT;
+      try { s = await cargar(); } catch {
         console.warn('No pude cargar sharp, la librería de imágenes (su binario no existe para este sistema o no es compatible). Las imágenes adjuntas irán solo por su ruta y sin miniatura; reinstalar las dependencias suele arreglarlo.');
         return null;
       }
+      try {
+        s.block({ operation: ['VipsForeignLoad'] });
+        s.unblock({ operation: ['Jpeg', 'Png', 'Webp', 'Gif', 'Nsgif', 'Tiff'].flatMap(f => [`VipsForeignLoad${f}File`, `VipsForeignLoad${f}Buffer`]) });
+        s.cache(false);   // servidor de larga vida y pocas imágenes: sin caché que crezca
+      } catch {
+        console.warn('sharp, la librería de imágenes, ha cargado pero no deja limitar los formatos que lee (¿otra versión?). Por seguridad no se usa: las imágenes adjuntas irán solo por su ruta y sin miniatura; reinstalar las dependencias suele arreglarlo.');
+        return null;
+      }
+      return s;
     })();
     cargas.set(cargar, carga);
   }
   return carga;
 }
 
+// abre una imagen con sharp, siempre con los topes de entrada (píxeles, primer error) y de tiempo
+const abrirCon = (sharp: typeof SharpT, entrada: string | Buffer, extra: SharpOptions = {}) => sharp(entrada, { ...ENTRADA, ...extra }).timeout(TOPE);
+
 /** La orden que pasa un HEIC/HEIF o BMP a PNG con el programa del sistema; null si sharp lo lee solo o no hay con qué */
 export function ordenDecodificar(entrada: string, salida: string, p: Plataforma = process.platform, buscar: Buscador = n => enPath(n)): Orden | null {
   if (!necesitaDecodificador(entrada)) return null;
   if (p === 'darwin') return { bin: '/usr/bin/sips', args: ['-s', 'format', 'png', entrada, '--out', salida] };
-  if (path.extname(entrada).toLowerCase() === '.bmp') return null;
+  if (sinDecodificadorEnLinux(entrada)) return null;
   // heif-dec desde libheif 1.17; antes se llamaba heif-convert, con los mismos argumentos
   const bin = buscar('heif-dec') ?? buscar('heif-convert');
   return bin ? { bin, args: [entrada, salida] } : null;
@@ -83,13 +92,13 @@ async function conLegible<T>(ruta: string, o: OpcionesImagen, uso: (legible: str
 export async function imagenParaClaude(ruta: string, o: OpcionesImagen = {}): Promise<{ media_type: string; data: string } | null> {
   const sharp = await conSharp(o.cargarSharp);
   if (!sharp) return null;
-  const abrir = (entrada: string | Buffer, extra: SharpOptions = {}) => sharp(entrada, { ...ENTRADA, ...extra }).timeout(TOPE);
+  const abrir = (entrada: string | Buffer, extra?: SharpOptions) => abrirCon(sharp, entrada, extra);
   return conLegible(ruta, o, async legible => {
     const m = await abrir(legible).metadata();
     if (!m.width || !m.height) return null;
     // tal cual solo si la extensión dice lo mismo que el contenido (un WebP llamado .png no va como image/png) y no hay
     // EXIF, XMP ni IPTC, que pueden llevar el GPS de la foto, el autor o el equipo. Un perfil ICC solo no dice nada de nadie
-    const directa = DIRECTAS[path.extname(ruta).toLowerCase()];
+    const directa = DIRECTAS[extension(ruta)];
     const limpia = !m.exif && !m.xmp && !m.iptc;
     if (directa && directa === POR_FORMATO[m.format] && limpia && Math.max(m.width, m.height) <= MAX_LADO && statSync(ruta).size <= MAX_IMAGEN) return { media_type: directa, data: readFileSync(ruta).toString('base64') };
     // se decodifica una vez: girada según el EXIF, con el lado mayor como mucho de MAX_LADO, en píxeles de 8 bits; de ahí
@@ -112,7 +121,7 @@ export async function miniaturaJpeg(ruta: string, lado: number, o: OpcionesImage
   const sharp = await conSharp(o.cargarSharp);
   if (!sharp) throw new Error('No se pueden hacer miniaturas: la librería de imágenes (sharp) no carga en este sistema.');
   return conLegible(ruta, o, async legible => {
-    const datos = await sharp(legible, ENTRADA).timeout(TOPE).rotate().resize({ width: lado, height: lado, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).jpeg({ quality: 75 }).toBuffer();
+    const datos = await abrirCon(sharp, legible).rotate().resize({ width: lado, height: lado, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).jpeg({ quality: 75 }).toBuffer();
     return 'data:image/jpeg;base64,' + datos.toString('base64');
   });
 }

@@ -41,4 +41,15 @@ describe('sin sharp (su binario nativo no carga en este sistema)', () => {
     try { expect(await imagenParaClaude('/u/a.heic', o)).toBeNull(); } finally { aviso.mockRestore(); }
     expect(llamadas).toEqual([]);
   });
+  it('si sharp carga pero no se deja limitar a los formatos de la lista, tampoco se usa, con su propio aviso', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const sinBloqueo = async () => ({ block: () => { throw new Error('block no existe'); }, unblock: () => {}, cache: () => {} }) as never;
+      expect(await imagenParaClaude('/no/importa/foto.jpg', { cargarSharp: sinBloqueo })).toBeNull();
+      await expect(miniaturaJpeg('/no/importa/foto.jpg', 360, { cargarSharp: sinBloqueo })).rejects.toThrow(/librería de imágenes/);
+      expect(aviso).toHaveBeenCalledTimes(1);
+      const texto = String(aviso.mock.calls[0][0]);
+      expect(texto).toMatch(/formatos/); expect(texto).not.toMatch(/No pude cargar/);
+    } finally { aviso.mockRestore(); }
+  });
 });
