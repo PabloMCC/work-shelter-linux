@@ -143,17 +143,19 @@ describe('opciones de query()', () => {
     await nuevas([dir]).empezar('hab-1', 'sala-1', dir, '', {});   // confiada en el juego: se lanza sin preguntar
     expect(llamadas).toHaveLength(4); expect(fuentes()).toEqual(['user', 'project', 'local']);
   });
-  it('RIESGO CONOCIDO: el permissionMode que informa el init (auto) sustituye al pedido y se reutiliza al reanudar', async () => {
+  it('si el init informa otro modo (auto), se mantiene el pedido: se le devuelve al SDK, se avisa y se reanuda con él', async () => {
     const s = nuevas(); const r = await s.empezar('hab-1', 'sala-1', dir, 'Hola', { permisos: 'default' });
     expect(llamadas[0].options.permissionMode).toBe('default');
     for (const m of fixture('init-modo-auto.json', dir)) llamadas[0].meter(m);
     await vi.waitFor(() => expect(s.get(r.id)!.r.estado).toBe('terminada'));
-    expect(s.get(r.id)!.r.modoPermisos).toBe('auto');
+    expect(s.get(r.id)!.r.modoPermisos).toBe('default');
+    expect(llamadas[0].modos).toEqual(['default']);
+    expect(s.cuaderno(r.id).find(e => e.tipo === 'sistema')?.texto).toMatch(/auto.*default/s);
     llamadas[0].terminar();
     await vi.waitFor(() => expect(s.get(r.id)!.viva).toBe(false));
     s.enviar(r.id, 'Sigue');   // la sesión ya no está viva: se relanza retomando la conversación
     expect(llamadas).toHaveLength(2);
-    expect(llamadas[1].options).toMatchObject({ resume: '0a1b2c3d-0000-4000-8000-0000000a0700', permissionMode: 'auto' });
+    expect(llamadas[1].options).toMatchObject({ resume: '0a1b2c3d-0000-4000-8000-0000000a0700', permissionMode: 'default' });
     s.cerrarTodas();
   });
 });

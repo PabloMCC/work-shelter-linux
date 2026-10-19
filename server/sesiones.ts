@@ -379,7 +379,14 @@ export class Sesiones extends EventEmitter {
           this.anadir(x, this.entrada('error', `Esta sesión iba a usar una clave de API (${m.apiKeySource}). work-shelter solo trabaja con tu sesión de Claude Code: la he parado. Quita esa clave de tus ajustes o variables de entorno.`));
           x.cerrando = true; x.q?.close(); return;
         }
-        r.claudeId = m.session_id; r.cwd = m.cwd; r.modelo = m.model; r.modoPermisos = m.permissionMode;
+        r.claudeId = m.session_id; r.cwd = m.cwd; r.modelo = m.model;
+        // el modo de permisos lo decide el Supervisor (al empezar o con modo()): si el SDK arranca en otro (p. ej. 'auto'
+        // por unos ajustes), se le devuelve al pedido y se avisa; nunca se adopta, porque se reutilizaría al reanudar
+        if (m.permissionMode && m.permissionMode !== (r.modoPermisos || 'default')) {
+          const pedido = r.modoPermisos || 'default';
+          x.q?.setPermissionMode(pedido as any).catch(() => {});
+          this.anadir(x, this.entrada('sistema', `Claude Code arrancó en modo de permisos «${m.permissionMode}» y no en el pedido, «${pedido}». Se ha vuelto a «${pedido}».`));
+        }
         if (m.cwd && /\/\.claude\/worktrees\//.test(m.cwd)) r.worktree = m.cwd;
         if (r.estado === 'arrancando') r.estado = 'trabajando';
         x.q?.supportedCommands().then(cs => { x.comandos = cs.map(c => ({ nombre: c.name, descripcion: c.description, pista: c.argumentHint || undefined })); this.emit('comandos', r.id, x.comandos); }).catch(() => {});
