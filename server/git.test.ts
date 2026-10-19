@@ -136,3 +136,12 @@ describe('piezas del cliente', () => {
     expect(rachas([1, 1, 1, 1, 0, 1, 2].map(n => ({ n })))).toEqual({ actual: 2, mejor: 4 });
   });
 });
+
+describe('ejecutar git', () => {
+  // git --version no lee la entrada: escribir en la tubería cerrada da EPIPE, que no debe escaparse
+  it('si git no lee la entrada, se recoge su resultado sin errores sueltos', async () => {
+    const r = await G.ejecutar(os.tmpdir(), ['--version'], { entrada: 'x'.repeat(8 * 1024 * 1024) });
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/^git version /);
+  });
+});

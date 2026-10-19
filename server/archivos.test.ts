@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, symlinkSync, existsSync, utimesSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { accionArchivos } from './archivos.ts';
+import { accionArchivos, ejecutar } from './archivos.ts';
 import { aplanar, buscarArchivos, carpetasCambiadas, consultaYLinea, idiomaDe } from '../web/src/ui/archivos/comun.ts';
 
 const sh = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8' });
@@ -113,5 +113,12 @@ describe('piezas del explorador', () => {
     expect(idiomaDe('Dockerfile', idiomas)).toBe('dockerfile');
     expect(idiomaDe('x.d.yml', idiomas)).toBe('yaml');
     expect(idiomaDe('LICENSE', idiomas)).toBe('plaintext');
+  });
+});
+
+describe('procesos auxiliares', () => {
+  // Un proceso que termina sin leer su entrada cierra la tubería: escribir en ella da EPIPE, que no debe escaparse
+  it('si el proceso no lee la entrada, se recoge su resultado sin errores sueltos', async () => {
+    expect(await ejecutar('true', [], { entrada: 'x'.repeat(8 * 1024 * 1024) })).toEqual({ out: '', code: 0 });
   });
 });

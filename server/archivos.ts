@@ -41,7 +41,7 @@ async function dentro(raiz: string, rel: string) {
   return abs;
 }
 
-function ejecutar(bin: string, args: string[], o: { cwd?: string; entrada?: string; timeout?: number } = {}): Promise<{ out: string; code: number }> {
+export function ejecutar(bin: string, args: string[], o: { cwd?: string; entrada?: string; timeout?: number } = {}): Promise<{ out: string; code: number }> {
   return new Promise(ok => {
     const p = spawn(bin, args, { cwd: o.cwd, env: entornoGit({ GIT_OPTIONAL_LOCKS: '0' }), stdio: ['pipe', 'pipe', 'ignore'] });
     const out: Buffer[] = []; let largo = 0;
@@ -49,6 +49,8 @@ function ejecutar(bin: string, args: string[], o: { cwd?: string; entrada?: stri
     const reloj = setTimeout(() => p.kill('SIGTERM'), o.timeout ?? 15_000);
     p.on('error', () => { clearTimeout(reloj); ok({ out: '', code: -1 }); });
     p.on('close', code => { clearTimeout(reloj); ok({ out: Buffer.concat(out).toString('utf8'), code: code ?? -1 }); });
+    // si el proceso termina sin leer la entrada, escribir da EPIPE: no es un fallo, su resultado llega por 'close'
+    p.stdin.on('error', () => {});
     p.stdin.end(o.entrada ?? '');
   });
 }
