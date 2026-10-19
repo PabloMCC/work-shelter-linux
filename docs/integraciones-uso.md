@@ -13,16 +13,19 @@ también dentro del juego (cámara acorazada → la fuente).
   (eres tú actuando a través de él), no el juego.
 - **Sin identificadores de nadie.** Cada usuario crea su propia app (Microsoft Entra, Google Cloud, bot de Discord,
   app de Slack) y pega sus datos. El repo no trae IDs de cliente, tokens ni URLs de ninguna organización.
-- **Secretos solo en el llavero de macOS** (`server/integraciones/llavero.ts`): servicio `work-shelter-public`, cuenta
+- **Secretos solo en el llavero del sistema** (`server/integraciones/llavero.ts`): servicio `work-shelter-public`, cuenta
   `<fuente>.<campo>` (`linear.apiKey`, `discord.token`, `slack.token`, `github.token`, `google.clientSecret`,
-  `outlook.refreshToken`, `google.refreshToken`). Se escriben con `security -i` (la orden va por stdin, así el secreto
-  no aparece en `ps`) y en base64. En `.data/refugio.json` solo van los datos no secretos
+  `outlook.refreshToken`, `google.refreshToken`). En macOS, en el llavero de macOS con `security -i` (la orden va por
+  stdin, así el secreto no aparece en `ps`) y en base64. En Linux, en el servicio de secretos del escritorio (KWallet,
+  GNOME Keyring, KeePassXC…) con `secret-tool store`, que también lee el valor por stdin; sin `secret-tool` o sin
+  servicio en marcha, falla cerrado y no se guarda en ningún otro sitio. En `.data/refugio.json` solo van los datos no secretos
   (`integraciones.<fuente>.campos`) y los **nombres** de los secretos guardados (`integraciones.<fuente>.secretos`).
   Nada de secretos en git, en logs ni en mensajes de error.
 - **Sin telemetría.** El servidor escucha solo en `127.0.0.1`.
 
-Limitación del llavero: con `/usr/bin/security`, la app de confianza del elemento es el propio `security`, así que
-otro proceso de tu mismo usuario podría leerlo sin aviso. Para un Mac personal se acepta (evita dependencias
+Limitación del llavero: mientras está desbloqueado, otro proceso de tu mismo usuario podría leer el elemento sin aviso
+(en macOS, con `/usr/bin/security`, la app de confianza del elemento es el propio `security`; en Linux, el servicio de
+secretos se lo da a cualquier programa de la sesión). Para un equipo personal se acepta (evita dependencias
 nativas); por eso los permisos que se piden son los mínimos y de solo lectura.
 
 ## Añadir una fuente nueva

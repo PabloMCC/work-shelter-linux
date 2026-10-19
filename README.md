@@ -11,14 +11,20 @@ Cada repositorio es una sala excavada en la roca y sus habitantes son sesiones r
 Tú eres el Supervisor: recorres pasillos y ascensores, hablas con los habitantes, apruebas permisos, abres terminales
 y lees el correo, los chats y el calendario sin salir del refugio.
 
-> *English summary:* work-shelter is a Fallout-Shelter-style 3D management game (three.js + Electron, macOS) that is
-> really a UI for real Claude Code sessions: each repo is a room, each inhabitant is a Claude Code session, talking is
-> working. It runs entirely on your Mac with your existing Claude Code login (no API keys, no telemetry). The game and
-> its docs are in Spanish. **It is an opinionated first proposal, not a product**: fork it and make it yours. Some
-> parts (the shooting gallery and the in-game economy) are deliberately left as an unfinished first iteration.
-> Install as a macOS app: `curl -fsSL https://raw.githubusercontent.com/DavidTorrijos/work-shelter-public/main/instalar.sh | bash`.
+> **Este repositorio es un fork** de [`DavidTorrijos/work-shelter-public`](https://github.com/DavidTorrijos/work-shelter-public),
+> el proyecto original (solo macOS), que añade **Linux**. El juego, su diseño y su código son obra de su autor original;
+> los créditos y las licencias de abajo siguen siendo los suyos. Lo que cambia en Linux, y lo que aún no está, se
+> explica en cada sección.
 
-- **Todo en tu Mac.** El servidor solo escucha en `127.0.0.1`, no hay telemetría y el juego no usa claves de API ni
+> *English summary:* work-shelter is a Fallout-Shelter-style 3D management game (three.js + Electron) that is
+> really a UI for real Claude Code sessions: each repo is a room, each inhabitant is a Claude Code session, talking is
+> working. It runs entirely on your computer with your existing Claude Code login (no API keys, no telemetry). The game
+> and its docs are in Spanish. **It is an opinionated first proposal, not a product**: fork it and make it yours. Some
+> parts (the shooting gallery and the in-game economy) are deliberately left as an unfinished first iteration.
+> This fork adds Linux support to the original macOS-only project; on Linux, clone the repo and run `./shelter`.
+> Install the original as a macOS app: `curl -fsSL https://raw.githubusercontent.com/DavidTorrijos/work-shelter-public/main/instalar.sh | bash`.
+
+- **Todo en tu equipo.** El servidor solo escucha en `127.0.0.1`, no hay telemetría y el juego no usa claves de API ni
   inferencia propia: los habitantes trabajan con **tu** Claude Code instalado, con tu sesión, tus ajustes, tu
   `CLAUDE.md`, tus hooks y tus servidores MCP.
 - **Es un juego de verdad**: habitantes con rutina y personalidad, ascensores, cultivos, galería de tiro, tienda,
@@ -38,7 +44,7 @@ pero no es un producto ni pretende serlo:
 - **Está pensado para que lo cambie un agente.** [`AGENTS.md`](AGENTS.md) describe la arquitectura para Claude Code y
   Codex, y el propio refugio tiene una sala, el **Puente de Mando**, cuyo habitante trabaja sobre el repo del juego:
   le pides un cambio desde dentro y lo aplicas sin cerrar nada.
-- **Las decisiones son opinables.** Todo en español, solo macOS, estética de refugio, integraciones de solo lectura…
+- **Las decisiones son opinables.** Todo en español, macOS (y Linux en este fork), estética de refugio, integraciones de solo lectura…
   Son elecciones de esta versión, no principios del proyecto (salvo las de privacidad y seguridad, que conviene
   conservar: ver más abajo).
 
@@ -69,6 +75,18 @@ quiera rehacer a su manera:
 Si rehaces cualquiera de las dos, el resto del juego solo las toca por las acciones `juego.*` del protocolo y el
 estado `jugador` del refugio.
 
+Y en Linux, de momento:
+
+- **Solo en macOS por ahora**: salir a la superficie, el dictado por voz y Spotify en la Discoteca. En Linux se ven
+  apagados y, al pulsarlos, avisan de que aún no están; el resto del juego no depende de ellos. La tecla de pánico
+  (Mayús+Alt+Ctrl+Esc) solo esconde la ventana del juego.
+- **Sin acceso en el menú de aplicaciones** todavía: `./shelter instalar-app` lo dice y sale sin tocar nada. El juego
+  se abre con `./shelter` desde una terminal en su carpeta.
+- **Probado de punta a punta en un escritorio Arch** (CachyOS, KDE Plasma sobre Wayland, gráfica NVIDIA). Las pruebas
+  automáticas pasan en Ubuntu y en macOS, pero el juego aún no se ha probado entero en un escritorio Ubuntu o Fedora:
+  debería ir, sin garantía.
+- **El suelo parpadea** en algunas vistas. Pasa también en el original en macOS; está en estudio.
+
 ### ¿Y con Codex?
 
 Hoy cada habitante es una sesión de **Claude Code**. Codex ya puede trabajar *sobre* el código del juego (lee
@@ -88,19 +106,65 @@ Algunos consejos:
   refugio.
 - **Haz un commit antes de cada fase** para poder volver atrás si el refugio deja de arrancar. Si se rompe tanto que no
   puedes entrar, abre Claude Code o Codex en una terminal en la carpeta del juego y pídeselo desde ahí.
-- **Recuérdale lo que no debe perder**: que nada se envíe fuera de tu Mac salvo al propio agente, que los permisos los
+- **Recuérdale lo que no debe perder**: que nada se envíe fuera de tu equipo salvo al propio agente, que los permisos los
   sigas aprobando tú y que las conversaciones se puedan retomar fuera del juego («salir a la superficie»).
 - Necesitas Codex instalado y con tu sesión iniciada, igual que Claude Code.
 
 ## Requisitos
 
-- macOS (Apple Silicon o Intel). El dictado por voz necesita macOS 26; todo lo demás, cualquier macOS reciente.
+En los dos sistemas:
+
 - [Claude Code](https://docs.claude.com/claude-code) instalado y con sesión iniciada (`claude` y luego `/login` en una
   terminal). Los habitantes consumen los límites de tu plan, como si trabajaras en la terminal.
+- Node 22 o superior. Si no lo tienes, `./shelter` descarga el oficial (22.20.0) solo para el juego y comprueba su
+  suma SHA-256 antes de usarlo; no hacen falta permisos de administrador.
+- Una gráfica con WebGL2 (cualquiera con sus controladores al día). Sin ella, el juego enseña una pantalla que lo
+  explica en vez del refugio.
 - Opcional: [`gh`](https://cli.github.com) con sesión iniciada (pull requests, contribuciones y notificaciones de
-  GitHub) e iTerm (para «salir a la superficie»; si no está, se usa Terminal).
+  GitHub).
+
+**macOS** (Apple Silicon o Intel). El dictado por voz necesita macOS 26; todo lo demás, cualquier macOS reciente.
+Opcional: iTerm (para «salir a la superficie»; si no está, se usa Terminal).
+
+**Linux** (x64 o arm64), con un escritorio gráfico, `git`, `curl` y bash. Además:
+
+| Para qué | Qué hace falta | Debian y Ubuntu | Fedora | Arch |
+|---|---|---|---|---|
+| Guardar las credenciales de las integraciones (sin esto no se guarda ninguna, y las fuentes que la necesitan se quedan en DEMO) | `secret-tool` y un servicio de secretos en marcha (KWallet, GNOME Keyring, KeePassXC…) | `libsecret-tools` | `libsecret` | `libsecret` |
+| Ver y enviar a Claude fotos HEIC/HEIF (sin esto, la foto va solo como ruta) | `heif-dec` (o `heif-convert`, su nombre antiguo) con decodificador HEVC | `libheif-examples` y `libheif-plugin-libde265` | `libheif-tools`; el HEVC, con `libheif-freeworld` de RPM Fusion | `libheif` |
+
+Las dos filas son opcionales: el juego arranca sin ellas. Abrir enlaces y carpetas usa `xdg-open`, y la papelera,
+`gio trash`, que vienen con los escritorios habituales.
 
 ## Instalación
+
+### En Linux
+
+```bash
+git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd work-shelter
+./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
+```
+
+La primera vez tarda unos minutos: usa tu Node 22 o, si no hay, descarga el oficial y comprueba su suma; instala las
+dependencias (`npm ci`) y la ventana del juego (Electron); descarga el material artístico CC0 y compila la interfaz.
+Las siguientes, abre en segundos. Todo queda dentro de la carpeta del juego y de las de datos (ver [Datos](#datos)):
+no pide contraseña ni instala nada en el sistema. Aún no hay acceso en el menú de aplicaciones: se abre siempre con
+`./shelter` desde esa carpeta.
+
+**Poner al día:** `git pull` en la carpeta y `./shelter` (si cambian las dependencias, las reinstala solo).
+
+**Desinstalar:** borra la carpeta del juego (con ella, el estado del refugio), `~/.local/share/work-shelter-public`
+(repos de ejemplo y carpetas de las salas especiales), `~/.config/work-shelter-public` (sesiones de los navegadores)
+y `~/.local/state/work-shelter-public` (registro de la ventana); si tienes puestas las variables `XDG_DATA_HOME`,
+`XDG_CONFIG_HOME` o `XDG_STATE_HOME`, están ahí en vez de en `~/.local/share`, `~/.config` y `~/.local/state`. Las
+credenciales de las integraciones están en el llavero del escritorio (atributo `service` = `work-shelter-public`;
+con `secret-tool clear service work-shelter-public account <cuenta>`, o desde KWallet o Seahorse). Tus repos y tus
+conversaciones de Claude Code no se tocan.
+
+### En macOS
+
+El instalador de una línea instala el **proyecto original** (solo macOS). Para usar este fork en macOS, sigue
+[Desde el código](#desde-el-código).
 
 Pega esto en una terminal:
 
@@ -133,16 +197,19 @@ Claude Code no se tocan.
 
 ### Desde el código
 
-Si vas a cambiar el juego, puedes tenerlo donde quieras:
+Si vas a cambiar el juego, puedes tenerlo donde quieras (en Linux es la instalación de arriba):
 
 ```bash
-git clone https://github.com/DavidTorrijos/work-shelter-public.git work-shelter && cd work-shelter
+git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd work-shelter
 ./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
-./shelter instalar-app    # o crea la app de Aplicaciones apuntando a esta carpeta (--sin-dock para no tocar el Dock)
+./shelter instalar-app    # solo macOS: crea la app de Aplicaciones apuntando a esta carpeta (--sin-dock para no tocar el Dock)
 ```
 
-La app abre el juego de la carpeta desde la que se instaló, así que tus cambios se ven sin reinstalarla: el Puente de
-Mando del propio juego los aplica («Aplicar los cambios del juego» o «Reiniciar el juego»). El icono es
+Si la ventana del juego no llega a abrirse, `./shelter` abre el juego en tu navegador y te dice dónde está el
+registro (ver [Solución de problemas](#solución-de-problemas)).
+
+Tus cambios se ven sin reinstalar nada (en macOS, la app abre el juego de la carpeta desde la que se instaló): el
+Puente de Mando del propio juego los aplica («Aplicar los cambios del juego» o «Reiniciar el juego»). El icono es
 `electron/icono/fuente.png`; si lo cambias, `node scripts/instalar-app.mjs --icono` lo prepara de nuevo (necesita
 `npx playwright install chromium`).
 
@@ -154,7 +221,7 @@ segundos a que vuelvas antes de parar las sesiones.
 Eliges el aspecto del Supervisor y el nombre del refugio. El refugio trae:
 
 - **Cuatro salas de ejemplo**, una por clase de proyecto, cada una con un repo público muy conocido que se clona solo
-  la primera vez (con su historia reciente) en `~/Library/Application Support/work-shelter-public/ejemplos/`:
+  la primera vez (con su historia reciente) en `ejemplos/`, dentro de la carpeta de datos (ver [Datos](#datos)):
 
   | Sala | Repo | |
   |---|---|---|
@@ -167,7 +234,7 @@ Eliges el aspecto del Supervisor y el nombre del refugio. El refugio trae:
   puedes **vincularla a un repo tuyo** (la sala y su habitante se quedan; la copia de ejemplo va a la papelera) o
   **retirarla**, y reclutar más repos desde la **Puerta**, que sugiere las carpetas de tu raíz de repos (`~/Sites`,
   `~/Developer`, `~/Projects`, `~/code`… la primera que exista; se cambia en la cámara acorazada).
-- **Adaptar la sala al repo** (panel de la sala o ⌘K): su habitante lee el repo y le diseña una escena propia con el
+- **Adaptar la sala al repo** (panel de la sala o el buscador, ⌘K / Ctrl+Mayús+K): su habitante lee el repo y le diseña una escena propia con el
   atrezo del juego (la pieza protagonista, muebles y cachivaches, carteles con lemas, pantallas que escriben solas,
   colores y luz), la mira con una foto, la corrige y te cuenta qué ha montado. Luego le puedes pedir retoques en la
   misma conversación («pon una planta junto a la mesa»), o volver a la escena de serie. La escena son datos que el
@@ -178,7 +245,8 @@ Eliges el aspecto del Supervisor y el nombre del refugio. El refugio trae:
 
 ## Controles
 
-Todo está en el juego con **F1**, y las teclas de cada cosa se ven en la regleta de arriba.
+Todo está en el juego con **F1**, y las teclas de cada cosa se ven en la regleta de arriba. Las teclas del refugio son
+las mismas en los dos sistemas; cambian solo los atajos con ⌘, que en Linux van con Ctrl+Mayús o con Ctrl (abajo).
 
 | Tecla | Qué hace |
 |---|---|
@@ -195,17 +263,32 @@ Todo está en el juego con **F1**, y las teclas de cada cosa se ven en la reglet
 | N / C / L | ir a comunicaciones, planificación o logística |
 | G | cliente de git |
 | P | Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante) |
-| ⌘K | buscador, desde cualquier sitio: conversaciones, acciones, habitantes y salas |
+| ⌘K (Linux: Ctrl+Mayús+K) | buscador, desde cualquier sitio: conversaciones, acciones, habitantes y salas |
 | Esc | cierra lo abierto; en el refugio, el menú del juego (opciones, atajos, reiniciar, salir) |
 
 En la conversación: Enter envía (Shift+Enter, salto de línea); `/` abre los comandos de Claude Code y `/btw` hace una
-pregunta lateral sin interrumpir; Ctrl+C (o `/stop`) para al habitante; ⌘U o arrastrar adjunta archivos; ⌘D dicta
-(transcribe macOS en tu Mac, sin red); 1 / 2 / 3 en un permiso: permitir, permitir siempre en la sesión, denegar.
+pregunta lateral sin interrumpir; Ctrl+C (o `/stop`) para al habitante; ⌘U (Linux: Ctrl+U) o arrastrar adjunta
+archivos; ⌘D dicta (transcribe macOS en tu Mac, sin red; en Linux aún no hay dictado); 1 / 2 / 3 en un permiso:
+permitir, permitir siempre en la sesión, denegar.
+
+Atajos con ⌘ en macOS y su equivalente en Linux:
+
+| macOS | Linux | Qué hace |
+|---|---|---|
+| ⌘K · ⌘J · ⌘B | Ctrl+Mayús+K · J · B | buscador · música · barra de ventanas con el teclado |
+| ⌘T · ⌘W | Ctrl+Mayús+T · W | pestaña nueva · cerrar la pestaña (en una terminal o un intercomunicador) |
+| ⌘M o ⌘↓ · ⌘↑ · ⌘1…⌘9 | Ctrl+Mayús+M o ↓ · ↑ · 1…9 | minimizar a la barra · pantalla completa · ir a una pestaña |
+| ⌃Tab | Ctrl+Tab | cambiar de pestaña |
+| ⌘W · ⌘R · ⌘[ ⌘] · ⌘+ ⌘- ⌘0 | Ctrl+W · R · [ ] · + - 0 | dentro de un navegador del refugio: cerrar, recargar, atrás y adelante, zoom |
+| ⌘⇧E · ⇧⌥⌘Esc | (no hay) · Mayús+Alt+Ctrl+Esc | salir a la superficie: una pestaña · todo (en Linux aún no hay superficie y la tecla de pánico solo esconde la ventana) |
+
+En Linux los del refugio llevan Ctrl+Mayús porque Ctrl+K, Ctrl+B o Ctrl+W ya los usan las webs y las terminales.
 
 ## Qué hay en el refugio
 
-- **Salas de repositorio**: rama, cambios, último commit, habitantes y actividad. Abrir la carpeta en Finder, en el
-  editor o en Terminal, ver el historial, retirar la sala.
+- **Salas de repositorio**: rama, cambios, último commit, habitantes y actividad. Abrir la carpeta en Finder (en
+  Linux, en tu gestor de archivos), en el editor (Cursor o VS Code; en Linux también Zed) o en una terminal, ver
+  el historial, retirar la sala.
 - **Habitantes**: sesiones reales de Claude Code. Empezar un trabajo (modelo, esfuerzo, modo de permisos, worktree),
   retomar conversaciones de esa carpeta (también las de la terminal), aprobar permisos viendo el comando o el diff
   exacto, contestar preguntas y aprobar planes, interrumpir. Varios trabajos a la vez, cada uno en su pestaña.
@@ -219,13 +302,13 @@ pregunta lateral sin interrumpir; Ctrl+C (o `/stop`) para al habitante; ⌘U o a
   del juego» recompila la interfaz sin cortar las sesiones.
 - **Discoteca**: la cabina del DJ abre Spotify, que suena dentro del juego (en un Google Chrome sin ventana: hace
   falta tenerlo instalado y una cuenta de Spotify); la pletina de abajo a la izquierda (⌘J) lo maneja sin abrirlo.
-  Sin Spotify suena la música propia de la sala.
+  Sin Spotify suena la música propia de la sala. De momento, solo en macOS: en Linux suena la música de la sala.
 - **Actividades y economía** (primera iteración, ver [Lo que está a medias](#lo-que-está-a-medias)): la moneda es la
   chatarra y sale del trabajo real (cada tarea terminada da chatarra). Cultivos que crecen con cada herramienta que
   usan los habitantes, galería de tiro con récord, radio de onda corta y el cuadro del generador; en la tienda,
   accesorios para ti y para los habitantes.
 - **Salir a la superficie**: si el juego se cae o no conviene que se vea, conversaciones y terminales siguen en una
-  terminal de tu escritorio ([`docs/superficie.md`](docs/superficie.md)).
+  terminal de tu escritorio ([`docs/superficie.md`](docs/superficie.md)). De momento, solo en macOS.
 
 ## Integraciones
 
@@ -244,13 +327,16 @@ Sin configurar, todo funciona en **DEMO** con datos simulados (marcados DEMO). C
 Todo es **solo lectura hacia fuera** y con los permisos mínimos: desde el juego no se responde correo ni chats ni se
 crean eventos. La única escritura es en Linear, a través de la conversación con el habitante de Logística y con tu
 permiso. El repo no trae identificadores de cliente ni credenciales de nadie. Los secretos se guardan en el **llavero
-de macOS** (servicio `work-shelter-public`), nunca en el repo ni en los datos del juego. Detalles técnicos, campos y la
+del sistema** (servicio `work-shelter-public`), nunca en el repo ni en los datos del juego: en macOS, el llavero de
+macOS; en Linux, el servicio de secretos del escritorio (KWallet, GNOME Keyring, KeePassXC…) a través de
+`secret-tool`. Si no hay `secret-tool` o no hay servicio en marcha, no se guarda nada en ningún otro sitio: la
+integración lo dice y sigue en DEMO. Detalles técnicos, campos y la
 configuración del MCP de Linear para Claude Code y Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
 
 ## Privacidad y seguridad
 
 > **Úsalo bajo tu responsabilidad.** work-shelter se publica tal cual, sin garantía de ningún tipo ([MIT](LICENSE)).
-> Maneja agentes que ejecutan órdenes en tu Mac con tus permisos, guarda credenciales de tus servicios y abre
+> Maneja agentes que ejecutan órdenes en tu equipo con tus permisos, guarda credenciales de tus servicios y abre
 > navegadores con tus sesiones. Nadie ha auditado su seguridad ni se compromete a corregir nada: lo que pase con tu
 > equipo, tus datos o tus cuentas (o las de tu organización) es cosa tuya. Revisa el código antes de usarlo con nada que
 > te importe. Precauciones y riesgos conocidos: [`SECURITY.md`](SECURITY.md).
@@ -259,12 +345,16 @@ configuración del MCP de Linear para Claude Code y Codex: [`docs/integraciones-
   `#t=` de la dirección que abre `./shelter`, nunca en la página).
 - Sin telemetría ni analítica. La red solo se usa para lo que tú configuras (las integraciones) y para descargar
   dependencias y assets la primera vez.
+- Credenciales solo en el llavero del sistema (ver [Integraciones](#integraciones)); si no lo hay, no se guardan.
+- Las imágenes que adjuntas salen sin metadatos ocultos (como la posición GPS de una foto) antes de llegar a Claude.
+- La ventana del juego nunca se arranca sin el aislamiento (sandbox) de Electron, que protege del contenido web. Si
+  tu sistema no lo permite, el juego se abre en tu navegador.
 - **Confianza en las carpetas, como en la CLI**: si un repo trae configuración de Claude Code (`.claude/`,
   `.mcp.json`, `CLAUDE.md`) y no lo has aceptado en Claude Code, el juego te pregunta antes de cargarla: esta vez,
   siempre para esa carpeta o trabajar sin ella (sin sus hooks, servidores MCP, permisos ni instrucciones).
 - Los permisos se enseñan con el comando o el diff exactos, como texto (sin interpretar), incluidos los caracteres
   invisibles.
-- **Los habitantes son Claude Code con tus permisos**: lo que apruebes se ejecuta en tu Mac. El modo «saltar permisos»
+- **Los habitantes son Claude Code con tus permisos**: lo que apruebes se ejecuta en tu equipo. El modo «saltar permisos»
   existe porque existe en Claude Code; úsalo solo en carpetas que no te importe perder.
 - No vincules como sala carpetas de fuera en las que no confíes, y ten en cuenta que `npm run dev` (desarrollo) sirve
   los archivos de la carpeta del juego, incluido su secreto, a cualquier proceso local: más en
@@ -274,9 +364,16 @@ configuración del MCP de Linear para Claude Code y Codex: [`docs/integraciones-
 
 - Estado del refugio: `.data/refugio.json` en la carpeta del juego (`~/.work-shelter-public` si lo instalaste con el
   comando de arriba): salas, disposición, habitantes, ajustes, progreso, récords, avisos vistos. Resetear el refugio desde la cámara acorazada no toca tus carpetas ni tus credenciales.
-- Repos de ejemplo y carpetas de las salas especiales: `~/Library/Application Support/work-shelter-public/`.
+- Repos de ejemplo y carpetas de las salas especiales: `~/Library/Application Support/work-shelter-public/` en macOS;
+  en Linux, `$XDG_DATA_HOME/work-shelter-public/` o, si no está puesta, `~/.local/share/work-shelter-public/`. Con
+  `SHELTER_DATOS`, van a esa carpeta.
+- Sesiones de los navegadores del refugio: la carpeta de datos de Electron (en macOS, la misma de arriba; en Linux,
+  `~/.config/work-shelter-public/`).
+- Registro de la ventana del juego (`electron.log`): `~/Library/Logs/work-shelter-public/` en macOS;
+  `$XDG_STATE_HOME/work-shelter-public/` o `~/.local/state/work-shelter-public/` en Linux.
 - Conversaciones: donde las guarda Claude Code (`~/.claude/projects`).
-- Secretos: llavero de macOS, servicio `work-shelter-public`.
+- Secretos: llavero del sistema, servicio `work-shelter-public` (llavero de macOS; en Linux, el servicio de secretos
+  del escritorio).
 
 ## Desarrollo
 
@@ -289,7 +386,12 @@ node scripts/captura.mjs <url> <png> 1600 900 --pasos=40   # capturas para QA vi
 ```
 
 Variables útiles: `SHELTER_DATOS` (carpeta de datos alternativa), `SHELTER_PUERTO` (otro puerto que 3778),
-`SHELTER_ZONA` (zona horaria, por defecto la del sistema), `SHELTER_TERMINAL=terminal|iterm`.
+`SHELTER_ZONA` (zona horaria, por defecto la del sistema), `SHELTER_TERMINAL=terminal|iterm` (macOS, para salir a la
+superficie). En Linux, la terminal que abren las salas es la de `$TERMINAL` o, si no está, `xdg-terminal-exec`, Konsole
+o GNOME Terminal.
+
+La capa que separa macOS y Linux está en `server/plataforma.ts` (servidor), `scripts/plataforma.sh` (lanzador),
+`electron/plataforma.cjs` (ventana) y `web/src/ui/teclas.ts` (atajos). Las pruebas se pasan en Ubuntu y en macOS.
 
 ### Mapa del código
 
@@ -313,6 +415,20 @@ son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de C
 - **«No encuentro Claude Code».** Instálalo y entra con tu cuenta. Después vuelve a abrir work-shelter.
 - **El puerto 3778 está ocupado.** Puede que ya haya otro work-shelter abierto. Ciérralo o arranca con
   `SHELTER_PUERTO=3779 ./shelter`.
+- **La ventana del juego no se abre y se abre el navegador** (sobre todo en Linux). `./shelter` lo avisa en la
+  terminal y guarda lo que dijo Electron en `electron.log` (`~/Library/Logs/work-shelter-public/` en macOS;
+  `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/` en Linux). Si el sistema no deja a Electron usar su
+  aislamiento (sandbox), lo dice también: pasa, por ejemplo, en Ubuntu 23.10 y posteriores, que con AppArmor limitan
+  los espacios de nombres de usuario. El diagnóstico que explica cómo permitirlo de forma segura está por llegar;
+  mientras tanto el juego funciona igual en el navegador. No arranques Electron con `--no-sandbox`.
+- **«Sin gráficos 3D».** El equipo no da WebGL2 al juego: faltan o están anticuados los controladores de la gráfica,
+  la aceleración por hardware está apagada, o es una máquina virtual o un escritorio remoto. La pantalla dice qué
+  hacer.
+- **Una foto HEIC no se ve en el intercomunicador** (Linux). Falta `heif-dec` con su decodificador HEVC: ver
+  [Requisitos](#requisitos). Mientras, la foto se le pasa al habitante como ruta. Los BMP van siempre como ruta en
+  Linux.
+- **No se guardan las credenciales de una integración** (Linux). Falta `secret-tool` o no hay un servicio de secretos
+  en marcha (KWallet, GNOME Keyring, KeePassXC con su integración activada…).
 - **Va lento.** Hay un solo perfil gráfico, a 60 fps como máximo. Con la ventana del juego detrás de otra aplicación no
   pinta nada: las terminales y las sesiones siguen.
 
