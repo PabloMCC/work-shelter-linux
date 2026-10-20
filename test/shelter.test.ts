@@ -456,6 +456,43 @@ describe('nodo_disponible (./shelter: el Node que ya hay, sin descargar nada)', 
   });
 });
 
+describe('borrar_nodos_viejos (al subir NODO_VERSION, el portátil anterior no se queda)', () => {
+  const runtime = () => path.join(dir, 'raiz', '.runtime');
+  const preparar = (nombres: string[]) => {
+    for (const n of nombres) mkdirSync(path.join(runtime(), n, 'bin'), { recursive: true });
+    writeFileSync(path.join(runtime(), 'lanzador.lock'), '');
+  };
+  const queda = (n: string) => existsSync(path.join(runtime(), n));
+  it('borra el anterior del mismo sistema y arquitectura; deja el nuevo, los de otra arquitectura y lo demás', () => {
+    preparar(['node-v22.20.0-linux-x64', 'node-v24.9.0-linux-x64', 'node-v24.22.0-linux-x64', 'node-v22.20.0-linux-arm64', 'node-v22.20.0-darwin-x64', 'nodejunk', 'node-vX-linux-x64']);
+    const r = bash(`borrar_nodos_viejos "${path.join(dir, 'raiz')}" .runtime/node-v24.22.0-linux-x64 linux x64`, { real: true });
+    expect(r).toMatchObject({ codigo: 0, error: '' });
+    for (const n of ['node-v22.20.0-linux-x64', 'node-v24.9.0-linux-x64']) expect(queda(n), n).toBe(false);
+    for (const n of ['node-v24.22.0-linux-x64', 'node-v22.20.0-linux-arm64', 'node-v22.20.0-darwin-x64', 'nodejunk', 'node-vX-linux-x64', 'lanzador.lock']) expect(queda(n), n).toBe(true);
+  });
+  it('sin ningún otro portátil (ni .runtime), no borra nada y sale con 0', () => {
+    preparar(['node-v24.22.0-linux-x64']);
+    expect(bash(`borrar_nodos_viejos "${path.join(dir, 'raiz')}" .runtime/node-v24.22.0-linux-x64 linux x64`, { real: true })).toMatchObject({ codigo: 0, error: '' });
+    expect(queda('node-v24.22.0-linux-x64')).toBe(true); expect(queda('lanzador.lock')).toBe(true);
+    expect(bash(`borrar_nodos_viejos "${path.join(dir, 'nada')}" .runtime/node-v24.22.0-linux-x64 linux x64`, { real: true })).toMatchObject({ codigo: 0, error: '' });
+  });
+  it('sin la carpeta nueva, el sistema o la arquitectura no borra nada', () => {
+    preparar(['node-v22.20.0-linux-x64']);
+    for (const args of ['"" linux x64', '.runtime/node-v24.22.0-linux-x64 "" x64', '.runtime/node-v24.22.0-linux-x64 linux ""']) {
+      expect(bash(`borrar_nodos_viejos "${path.join(dir, 'raiz')}" ${args}`, { real: true }).codigo, args).toBe(1);
+    }
+    expect(queda('node-v22.20.0-linux-x64')).toBe(true);
+  });
+  it('./shelter lo llama solo tras descargar, comprobar y descomprimir el nuevo, dentro del paso 1', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const i = t.indexOf('borrar_nodos_viejos "$RAIZ" "$DIR" "$SO" "$ARQ"');
+    expect(i).toBeGreaterThan(0);
+    for (const antes of ['curl -fL', 'sha256_comprobar', 'tar -xzf', 'usar_nodo_portatil "$DIR"']) expect(i, antes).toBeGreaterThan(t.indexOf(antes));
+    expect(i).toBeLessThan(t.indexOf('\nfi\n', t.indexOf('# 1. Node')));
+    expect(t.slice(t.lastIndexOf('\n', i), i)).toMatch(/\[ -x "\$DIR\/bin\/node" \] && $/);   // solo si el nuevo está
+  });
+});
+
 describe('carpeta_registros', () => {
   it('en macOS, ~/Library/Logs/work-shelter-public', () => {
     expect(bash('carpeta_registros', { s: 'Darwin', env: { HOME: '/casa', XDG_STATE_HOME: '/estado' } }).salida).toBe('/casa/Library/Logs/work-shelter-public');

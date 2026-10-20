@@ -53,6 +53,12 @@ describe('rutasExtra', () => {
   it('en Linux, ~/.local/bin y solo el Node portátil de Linux, sin Homebrew', () => {
     expect(p.rutasExtra('linux', '/casa', '/repo', leer)).toEqual(['/casa/.local/bin', '/repo/.runtime/node-v24.22.0-linux-x64/bin']);
   });
+  it('con varios portátiles del sistema, el de versión más nueva primero (por número, no por texto)', () => {
+    const varios = (...n: string[]) => (dir: string) => (dir === '/repo/.runtime' ? n : []);
+    const bin = (v: string) => `/repo/.runtime/node-v${v}-linux-x64/bin`;
+    expect(p.rutasExtra('linux', '/casa', '/repo', varios('node-v22.20.0-linux-x64', 'node-v24.22.0-linux-x64'))).toEqual(['/casa/.local/bin', bin('24.22.0'), bin('22.20.0')]);
+    expect(p.rutasExtra('linux', '/casa', '/repo', varios('node-v24.22.0-linux-x64', 'node-v24.9.0-linux-x64', 'node-v24.22.1-linux-x64'))).toEqual(['/casa/.local/bin', bin('24.22.1'), bin('24.22.0'), bin('24.9.0')]);
+  });
   it('sin repo o sin .runtime, solo las fijas', () => {
     expect(p.rutasExtra('linux', '/casa', undefined, leer)).toEqual(['/casa/.local/bin']);
     expect(p.rutasExtra('darwin', '/casa', '/otro', () => { throw new Error('ENOENT'); })).toEqual(['/casa/.local/bin', '/opt/homebrew/bin', '/usr/local/bin']);

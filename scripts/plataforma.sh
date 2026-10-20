@@ -35,6 +35,25 @@ suma_node() {
   esac
 }
 
+# Tras instalar un Node portátil, borra los anteriores del mismo sistema y arquitectura: al subir NODO_VERSION el viejo
+# (unos 100 MB) se quedaría para siempre, y Electron añade al PATH el bin/ de cada portátil (electron/plataforma.cjs).
+# borrar_nodos_viejos <raíz> <carpeta nueva, .runtime/…> <so> <arq>: solo <raíz>/.runtime/node-v<x.y.z>-<so>-<arq>,
+# nunca la nueva ni las de otro sistema o arquitectura. Sin alguno de los datos no borra nada y devuelve 1
+borrar_nodos_viejos() {
+  local raiz="${1:-}" nueva="${2:-}" so="${3:-}" arq="${4:-}" d n v
+  [ -n "$raiz" ] && [ -n "$nueva" ] && [ -n "$so" ] && [ -n "$arq" ] || return 1
+  nueva="${nueva##*/}"
+  # sin coincidencias, el patrón queda tal cual y no es una carpeta: no se borra nada
+  for d in "$raiz/.runtime/node-v"*"-$so-$arq"; do
+    [ -d "$d" ] && [ ! -L "$d" ] || continue
+    n="${d##*/}"; [ "$n" != "$nueva" ] || continue
+    v="${n#node-v}"; v="${v%-"$so"-"$arq"}"
+    case "$v" in ''|*[!0-9.]*|.*|*.|*..*) continue ;; esac   # solo versiones x.y.z de números
+    rm -rf "$d" || true
+  done
+  return 0
+}
+
 # Comprueba líneas «SUMA  archivo» que llegan por la entrada: sha256sum (Linux) o, si no está, shasum (macOS)
 sha256_comprobar() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum -c -

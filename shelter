@@ -74,6 +74,9 @@ if ! nodo_disponible; then
   echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 24 desde https://nodejs.org"; exit 1; }
   tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
   usar_nodo_portatil "$DIR"
+  # con el nuevo ya en su sitio, fuera los portátiles anteriores: una actualización deja el viejo y Electron añade al
+  # PATH el bin/ de cada uno
+  [ -x "$DIR/bin/node" ] && borrar_nodos_viejos "$RAIZ" "$DIR" "$SO" "$ARQ" || true
 fi
 
 if [ -n "$DESINSTALAR_APP" ]; then soltar_cerrojo; exec "$NODE" scripts/instalar-app-linux.mjs --desinstalar; fi
