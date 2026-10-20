@@ -3,6 +3,7 @@
 # preparar ni instalar nada. De lo que falte escribe la orden para instalarlo con pacman, apt o dnf (según
 # /etc/os-release); las que piden sudo las ejecuta la persona, nunca este script. Sale con 0 si todo lo obligatorio está y
 # con 1 si no. Compatible con el bash 3.2 de macOS. Cargado con `source` solo define funciones (así se prueba cada una).
+# pnpm no se comprueba: ./shelter descarga el suyo (el de packageManager) y nunca usa uno del sistema.
 # Para las pruebas: DOCTOR_RAIZ antepone una carpeta a /etc, /proc/sys y /dev; DOCTOR_ELECTRON_DIST cambia la carpeta
 # del binario de Electron (por omisión, node_modules/electron/dist de este repositorio).
 
@@ -98,18 +99,20 @@ version_node_shelter() {
   return 1
 }
 
-# Node 22 o superior, o poder descargar el portátil (sistema y arquitectura con suma conocida, y algo para comprobarla)
+# El Node mínimo de ./shelter (el de su NODO_VERSION) o superior, o poder descargar el portátil (sistema y arquitectura
+# con suma conocida, y algo para comprobarla). Sin NODO_VERSION que leer no da por bueno ningún Node del sistema
 comprobar_node() {
-  local v="" ver so arq
+  local v="" ver="" min="" nodo so arq
   hay node && v="$(node -p 'process.versions.node' 2>/dev/null)"
-  if [ -n "$v" ] && [ "${v%%.*}" -ge 22 ] 2>/dev/null; then bien "Node $v: ejecuta el juego"; return 0; fi
-  ver="$(version_node_shelter 2>/dev/null)"
-  if so="$(so_node 2>/dev/null)" && arq="$(arq_node 2>/dev/null)" && suma_node "$ver" "$so" "$arq" >/dev/null 2>&1 \
+  ver="$(version_node_shelter 2>/dev/null)" && min="$(nodo_minimo "$ver")" || min=""
+  nodo="Node${min:+ $min}"
+  if [ -n "$v" ] && [ "${v%%.*}" -ge "$min" ] 2>/dev/null; then bien "Node $v: ejecuta el juego"; return 0; fi
+  if so="$(so_node 2>/dev/null)" && arq="$(arq_node "$ver" 2>/dev/null)" && suma_node "$ver" "$so" "$arq" >/dev/null 2>&1 \
     && { hay sha256sum || hay shasum; }; then
-    bien "Node 22: ${v:+tienes el $v, que no llega; }./shelter descargará el oficial ($ver) solo para el juego, con su suma comprobada"
+    bien "$nodo: ${v:+tienes el $v, que no llega; }./shelter descargará el oficial ($ver) solo para el juego, con su suma comprobada"
   else
-    mal "Node 22 o superior: ${v:+tienes el $v y }no hay un Node portátil que descargar para este sistema"
-    detalle "Instala Node 22 o superior desde https://nodejs.org"
+    mal "$nodo o superior: ${v:+tienes el $v y }no hay un Node portátil que descargar para este sistema"
+    detalle "Instala $nodo o superior desde https://nodejs.org"
   fi
 }
 
@@ -244,9 +247,9 @@ doctor_principal() {
   esac
   echo "Obligatorio:"
   bien "bash $BASH_VERSION: el lanzador"
-  herramienta obligatoria curl "descargas (Node portátil y material del juego)" "$fam"
+  herramienta obligatoria curl "descargas (Node portátil, pnpm y material del juego)" "$fam"
   herramienta obligatoria git "las salas y su historial" "$fam"
-  herramienta obligatoria tar "descomprimir el Node portátil" "$fam"
+  herramienta obligatoria tar "descomprimir el Node portátil y pnpm" "$fam"
   comprobar_node
   comprobar_claude
   [ "$so" = linux ] && comprobar_sandbox

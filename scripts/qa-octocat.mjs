@@ -2,7 +2,7 @@
 // cada estado (ocioso, andando, trabajando, pensando en la silla, esperando con su saludo, terminado, error), del
 // intercomunicador con su retrato, y la velocidad al andar medida con el bucle real (no a pasos fijos).
 // Uso, con un refugio de pruebas:
-//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 npm run dev   (en otra terminal)
+//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 pnpm dev   (en otra terminal)
 //   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-octocat.mjs [carpeta-de-capturas]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';

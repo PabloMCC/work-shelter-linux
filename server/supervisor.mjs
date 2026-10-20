@@ -2,7 +2,7 @@
 // regleta) lo vuelve a lanzar con el mismo secreto, así la ventana abierta se reengancha sola; con el 76 sale él también
 // con ese código para que la app se vuelva a abrir entera (server/main.ts, reiniciarJuego). Si se cae por un
 // error, lo reintenta cada pocos segundos (en cuanto se arregle el código, vuelve). Ctrl+C o «Salir» lo paran.
-// Uso: node server/supervisor.mjs   (lo usan ./shelter y npm run dev)
+// Uso: node server/supervisor.mjs   (lo usan ./shelter y pnpm dev)
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';

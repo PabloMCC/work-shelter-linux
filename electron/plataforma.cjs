@@ -19,12 +19,19 @@ function shellDeUsuario(env = process.env, info = null, plataforma = process.pla
 }
 
 // lo que se añade al PATH heredado: ~/.local/bin (Claude Code), en macOS las de Homebrew, y el Node portátil que descarga
-// ./shelter en .runtime/ (solo el de este sistema: el de macOS en macOS y el de Linux en Linux)
+// ./shelter en .runtime/ (solo el de este sistema: el de macOS en macOS y el de Linux en Linux). Si hay varios, el de
+// versión más nueva primero: readdirSync no garantiza el orden y un portátil anterior no debe ganar al actual
+const versionNodo = n => (/^node-v(\d+)\.(\d+)\.(\d+)-/.exec(n) || []).slice(1).map(Number);
+const masNuevoPrimero = (a, b) => {
+  const x = versionNodo(a), y = versionNodo(b);
+  for (let i = 0; i < 3; i++) if ((y[i] ?? -1) !== (x[i] ?? -1)) return (y[i] ?? -1) - (x[i] ?? -1);
+  return 0;
+};
 function rutasExtra(plataforma = process.platform, casa = os.homedir(), repo, leer = fs.readdirSync) {
   const extra = [path.join(casa, '.local/bin')];
   if (plataforma === 'darwin') extra.push('/opt/homebrew/bin', '/usr/local/bin');
   const propio = n => new RegExp(`^node-.*-${plataforma === 'darwin' ? 'darwin' : 'linux'}-`).test(n);
-  if (repo) { const rt = path.join(repo, '.runtime'); try { extra.push(...leer(rt).filter(propio).map(n => path.join(rt, n, 'bin'))); } catch {} }
+  if (repo) { const rt = path.join(repo, '.runtime'); try { extra.push(...leer(rt).filter(propio).sort(masNuevoPrimero).map(n => path.join(rt, n, 'bin'))); } catch {} }
   return extra;
 }
 

@@ -4,7 +4,7 @@
 // arriba del todo vuelve al refugio sin parar nada; ⌘W con un trabajo en marcha pregunta (Esc cancela, Intro cierra);
 // × sin nada en marcha cierra sin preguntar.
 // Uso: node scripts/qa-intercom.mjs [url] [carpeta-capturas]   (servidor en marcha; SHELTER_DATOS para el token;
-// mejor con un refugio de pruebas: SHELTER_DATOS=/tmp/x npm run dev)
+// mejor con un refugio de pruebas: SHELTER_DATOS=/tmp/x pnpm dev)
 // Ojo: lanza sesiones reales de Claude Code (gastan de tu plan) y puede aprobar permisos: úsalo contra un refugio de
 // pruebas (arranca el juego con SHELTER_DATOS=/ruta/temporal), nunca contra el tuyo.
 import { chromium } from 'playwright';

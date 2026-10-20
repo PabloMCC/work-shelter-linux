@@ -123,7 +123,7 @@ En los dos sistemas:
 
 - [Claude Code](https://docs.claude.com/claude-code) instalado y con sesión iniciada (`claude` y luego `/login` en una
   terminal). Los habitantes consumen los límites de tu plan, como si trabajaras en la terminal.
-- Node 22 o superior. Si no lo tienes, `./shelter` descarga el oficial (22.20.0) solo para el juego y comprueba su
+- Node 24 o superior. Si no lo tienes, `./shelter` descarga el oficial (24.22.0) solo para el juego y comprueba su
   suma SHA-256 antes de usarlo; no hacen falta permisos de administrador.
 - Una gráfica con WebGL2 (cualquiera con sus controladores al día). Sin ella, el juego enseña una pantalla que lo
   explica en vez del refugio.
@@ -155,8 +155,9 @@ git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd 
 ./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
 ```
 
-La primera vez tarda unos minutos: usa tu Node 22 o, si no hay, descarga el oficial y comprueba su suma; instala las
-dependencias (`npm ci`) y la ventana del juego (Electron); descarga el material artístico CC0 y compila la interfaz.
+La primera vez tarda unos minutos: usa tu Node 24 o, si no hay, descarga el oficial y comprueba su suma; instala las
+dependencias con su propio pnpm (lo descarga y lo comprueba con `pnpm-lock.yaml`: no hace falta tenerlo instalado) y la
+ventana del juego (Electron); descarga el material artístico CC0 y compila la interfaz.
 Las siguientes, abre en segundos. Todo queda dentro de la carpeta del juego y de las de datos (ver [Datos](#datos)):
 no pide contraseña ni instala nada en el sistema.
 
@@ -195,9 +196,9 @@ Dock; desde entonces se abre como cualquier app. Lo que hace ([`instalar.sh`](in
 
 - Descarga el juego en `~/.work-shelter-public` (otra carpeta: `SHELTER_CODIGO=/ruta` delante de `bash`). Si macOS no
   tiene git, abre el instalador de sus herramientas de línea de comandos y te pide repetir el comando al acabar.
-- Usa Node 22 o superior; si no lo encuentra, descarga uno portátil para el juego (comprobando su suma oficial).
-- Instala las dependencias (`npm ci`) y la ventana del juego (Electron), descarga el material artístico CC0 (unos
-  100 MB, fijado por commit) y compila la interfaz.
+- Usa Node 24 o superior; si no lo encuentra, descarga uno portátil para el juego (comprobando su suma oficial).
+- Instala las dependencias con su propio pnpm (descargado y comprobado con `pnpm-lock.yaml`) y la ventana del juego
+  (Electron), descarga el material artístico CC0 (unos 100 MB, fijado por commit) y compila la interfaz.
 - Crea `/Applications/work-shelter-public.app`, la fija en el Dock y la abre. Para no tocar el Dock:
   `… | bash -s -- --sin-dock`.
 
@@ -374,7 +375,7 @@ configuración del MCP de Linear para Claude Code y Codex: [`docs/integraciones-
   invisibles.
 - **Los habitantes son Claude Code con tus permisos**: lo que apruebes se ejecuta en tu equipo. El modo «saltar permisos»
   existe porque existe en Claude Code; úsalo solo en carpetas que no te importe perder.
-- No vincules como sala carpetas de fuera en las que no confíes, y ten en cuenta que `npm run dev` (desarrollo) sirve
+- No vincules como sala carpetas de fuera en las que no confíes, y ten en cuenta que `pnpm dev` (desarrollo) sirve
   los archivos de la carpeta del juego, incluido su secreto, a cualquier proceso local: más en
   [`SECURITY.md`](SECURITY.md#riesgos-conocidos).
 
@@ -396,10 +397,11 @@ configuración del MCP de Linear para Claude Code y Codex: [`docs/integraciones-
 ## Desarrollo
 
 ```bash
-npm run dev                      # interfaz con recarga en caliente (http://127.0.0.1:5173)
+pnpm install                     # dependencias (la versión de pnpm es la de packageManager en package.json)
+pnpm dev                         # interfaz con recarga en caliente (http://127.0.0.1:5173)
 node server/supervisor.mjs       # servidor con reinicio desde el juego (SHELTER_DATOS=/tmp/x para no tocar tus datos)
-npm test                         # pruebas (sin red: las integraciones se prueban con fixtures sintéticos)
-npx tsc --noEmit -p .            # tipos
+pnpm test                        # pruebas (sin red: las integraciones se prueban con fixtures sintéticos)
+pnpm typecheck                   # tipos
 node scripts/captura.mjs <url> <png> 1600 900 --pasos=40   # capturas para QA visual
 ```
 

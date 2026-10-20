@@ -12,13 +12,23 @@ so_node() {
   esac
 }
 
-# Arquitectura como la usa Node en sus descargas: x64 | arm64. Cualquier otra, error.
+# Node mínimo de una versión x.y.z (su número antes del primer punto): nodo_minimo <versión>. Si eso no es un número,
+# nada y 1. ./shelter y el diagnóstico sacan así el mínimo de NODO_VERSION, sin escribirlo a mano
+nodo_minimo() {
+  local m="${1:-}"; m="${m%%.*}"
+  case "$m" in ''|*[!0-9]*) return 1 ;; esac
+  echo "$m"
+}
+
+# Arquitectura como la usa Node en sus descargas: x64 | arm64. Cualquier otra, error, que pide instalar el mínimo de
+# <versión> si llega: arq_node [<versión>]
 arq_node() {
-  local m; m="$(uname -m)"
+  local m n; m="$(uname -m)"
   case "$m" in
     x86_64|amd64) echo x64 ;;
     arm64|aarch64) echo arm64 ;;
-    *) printf 'No hay un Node portátil para esta arquitectura («%s»): instala Node 22 desde https://nodejs.org\n' "$m" >&2; return 1 ;;
+    *) n="$(nodo_minimo "${1:-}")" || n=""
+      printf 'No hay un Node portátil para esta arquitectura («%s»): instala Node%s desde https://nodejs.org\n' "$m" "${n:+ $n}" >&2; return 1 ;;
   esac
 }
 
@@ -26,13 +36,166 @@ arq_node() {
 # <arq>. Sin suma conocida no hay descarga: nunca se ejecuta un Node sin comprobar. Cambiar NODO_VERSION en ./shelter sin
 # añadir aquí las sumas de la nueva falla antes de descargar nada.
 suma_node() {
+  local n
+  # de https://nodejs.org/dist/v<versión>/SHASUMS256.txt.asc, con su firma comprobada con gpg contra las claves de
+  # https://github.com/nodejs/release-keys antes de copiar sus cuatro líneas .tar.gz (darwin-arm64, darwin-x64,
+  # linux-arm64, linux-x64)
   case "${1:-}-${2:-}-${3:-}" in
-    22.20.0-darwin-arm64) echo cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949 ;;
-    22.20.0-darwin-x64) echo 00df9c5df3e4ec6848c26b70fb47bf96492f342f4bed6b17f12d99b3a45eeecc ;;
-    22.20.0-linux-arm64) echo 4181609e03dcb9880e7e5bf956061ecc0503c77a480c6631d868cb1f65a2c7dd ;;
-    22.20.0-linux-x64) echo eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29 ;;
-    *) printf 'No conozco la suma oficial de Node v%s para «%s %s»: no lo descargo. Instala Node 22 desde https://nodejs.org\n' "${1:-}" "${2:-}" "${3:-}" >&2; return 1 ;;
+    24.22.0-darwin-arm64) echo 6a9724d9b50a5f22b4816cded441b5a8d9ddae546191a5e5b7efa5a5e2ee26d5 ;;
+    24.22.0-darwin-x64) echo 495e3f273c645f3c4677d438304cdfc701729ea5dec5728f5c8e76a2dece4b91 ;;
+    24.22.0-linux-arm64) echo b7e7991d5407815adfa74a2a9cd4db683552c8ce32ff4a295c22e972849c3f5d ;;
+    24.22.0-linux-x64) echo 28ea0a438de9a13bd7891fd758eee6c7819ee8af5442dfd8d45bd65e56d4228c ;;
+    *) n="$(nodo_minimo "${1:-}")" || n=""
+      printf 'No conozco la suma oficial de Node v%s para «%s %s»: no lo descargo. Instala Node%s desde https://nodejs.org\n' "${1:-}" "${2:-}" "${3:-}" "${n:+ $n}" >&2; return 1 ;;
   esac
+}
+
+# Tras instalar un Node portátil, borra los anteriores del mismo sistema y arquitectura: al subir NODO_VERSION el viejo
+# (unos 100 MB) se quedaría para siempre, y Electron añade al PATH el bin/ de cada portátil (electron/plataforma.cjs).
+# borrar_nodos_viejos <raíz> <carpeta nueva, .runtime/…> <so> <arq>: solo <raíz>/.runtime/node-v<x.y.z>-<so>-<arq>,
+# nunca la nueva ni las de otro sistema o arquitectura. Sin alguno de los datos no borra nada y devuelve 1
+borrar_nodos_viejos() { borrar_versiones_viejas node-v "$@"; }
+
+# Lo común de borrar_nodos_viejos y borrar_pnpm_viejos: borrar_versiones_viejas <prefijo> <raíz> <carpeta nueva> <so>
+# <arq> borra <raíz>/.runtime/<prefijo><versión>-<so>-<arq> salvo la nueva, solo si <versión> es una serie de números
+# con puntos, nunca un enlace ni lo de otro sistema o arquitectura. Sin alguno de los datos no borra nada y devuelve 1
+borrar_versiones_viejas() {
+  local prefijo="${1:-}" raiz="${2:-}" nueva="${3:-}" so="${4:-}" arq="${5:-}" d n v
+  [ -n "$prefijo" ] && [ -n "$raiz" ] && [ -n "$nueva" ] && [ -n "$so" ] && [ -n "$arq" ] || return 1
+  nueva="${nueva##*/}"
+  # sin coincidencias, el patrón queda tal cual y no es una carpeta: no se borra nada
+  for d in "$raiz/.runtime/$prefijo"*"-$so-$arq"; do
+    [ -d "$d" ] && [ ! -L "$d" ] || continue
+    n="${d##*/}"; [ "$n" != "$nueva" ] || continue
+    v="${n#"$prefijo"}"; v="${v%-"$so"-"$arq"}"
+    case "$v" in ''|*[!0-9.]*|.*|*.|*..*) continue ;; esac   # solo versiones x.y.z de números
+    rm -rf "$d" || true
+  done
+  return 0
+}
+
+# pnpm fijado: ./shelter nunca usa un pnpm del sistema. Instala las dependencias con el de packageManager
+# (package.json), el ejecutable autónomo que publica pnpm en el registro de npm (@pnpm/exe.<so>-<arq>, no necesita
+# Node), comprobado con la integridad sha512 que el propio pnpm guarda de él en pnpm-lock.yaml
+# (packageManagerDependencies) antes de extraer nada. Los nombres de sistema y arquitectura son los de so_node y
+# arq_node, que coinciden con los de esos paquetes.
+
+# Versión de pnpm de packageManager: version_pnpm <node> <package.json>. Solo «pnpm@x.y.z» (con o sin «+huella» detrás);
+# cualquier otra cosa, nada y 1
+version_pnpm() {
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] || return 1
+  "$1" -e '
+    let pm = "";
+    try { pm = String(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).packageManager ?? ""); } catch {}
+    const m = /^pnpm@(\d+\.\d+\.\d+)(\+[A-Za-z0-9.+/=-]+)?$/.exec(pm);
+    if (!m) process.exit(1);
+    console.log(m[1]);
+  ' "$2" 2>/dev/null
+}
+
+# Carpeta de un pnpm (relativa a la raíz) y dirección de su paquete en el registro:
+# carpeta_pnpm|url_pnpm <ver> <so> <arq>
+carpeta_pnpm() { [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ -n "${3:-}" ] || return 1; echo ".runtime/pnpm-$1-$2-$3"; }
+url_pnpm() {
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ -n "${3:-}" ] || return 1
+  echo "https://registry.npmjs.org/@pnpm/exe.$2-$3/-/exe.$2-$3-$1.tgz"
+}
+
+# Integridad esperada del pnpm de un sistema según el lockfile: integridad_pnpm <pnpm-lock.yaml> <ver> <so> <arq>. Busca
+# la clave «  '@pnpm/exe.<so>-<arq>@<ver>':» (sección packages) y vale solo si la línea siguiente es su
+# «resolution: {integrity: sha512-…}» con un sha512 completo (88 caracteres en base64). La misma clave en snapshots no
+# lleva esa línea y se salta. Sin ella, falla cerrado con un mensaje: nunca se descarga un pnpm sin saber qué esperar
+integridad_pnpm() {
+  local lock="${1:-}" ver="${2:-}" so="${3:-}" arq="${4:-}" clave l sig="" v=""
+  if [ -n "$ver" ] && [ -n "$so" ] && [ -n "$arq" ] && [ -f "$lock" ]; then
+    clave="@pnpm/exe.$so-$arq@$ver"
+    while IFS= read -r l || [ -n "$l" ]; do
+      if [ -n "$sig" ]; then
+        sig=""
+        case "$l" in "    resolution: {integrity: sha512-"*"}") v="${l#"    resolution: {integrity: "}"; v="${v%\}}"; break ;; esac
+      fi
+      if [ "$l" = "  '$clave':" ] || [ "$l" = "  $clave:" ]; then sig=1; fi
+    done < "$lock"
+  fi
+  # sha512 en base64: 86 caracteres y «==»
+  case "$v" in sha512-*==) case "${v#sha512-}" in *[!A-Za-z0-9+/=]*) v="" ;; esac ;; *) v="" ;; esac
+  [ "${#v}" -eq 95 ] || v=""
+  if [ -z "$v" ]; then
+    printf 'No encuentro en %s la huella de pnpm %s para «%s %s»: no lo descargo.\n' "${lock:-pnpm-lock.yaml}" "$ver" "$so" "$arq" >&2
+    return 1
+  fi
+  echo "$v"
+}
+
+# Comprueba un archivo contra una integridad «sha512-<base64>» con el Node que se le pase (node:crypto, igual en macOS
+# y en Linux): sha512_comprobar <node> <archivo> <integridad>. 0 si cuadra; 1 si no, o con otro algoritmo o nada
+sha512_comprobar() {
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] || return 1
+  case "${3:-}" in sha512-?*) ;; *) return 1 ;; esac
+  "$1" -e '
+    const [archivo, esperada] = process.argv.slice(1);
+    const h = require("node:crypto").createHash("sha512").update(require("node:fs").readFileSync(archivo)).digest("base64");
+    process.exit("sha512-" + h === esperada ? 0 : 1);
+  ' "$2" "$3" 2>/dev/null
+}
+
+# Tras instalar un pnpm, borra los anteriores del mismo sistema y arquitectura (unos 60 MB cada uno), con las mismas
+# reglas que borrar_nodos_viejos: borrar_pnpm_viejos <raíz> <carpeta nueva, .runtime/…> <so> <arq>
+borrar_pnpm_viejos() { borrar_versiones_viejas pnpm- "$@"; }
+
+# Coloca de golpe lo que trae un paquete .tar.gz ya comprobado (el Node portátil, pnpm). Extraer directamente en la
+# carpeta final no vale: tar crea el ejecutable con su permiso antes de terminar de escribirlo, y si el lanzador muere a
+# mitad (ventana cerrada, SIGKILL, apagón) el siguiente arranque vería un ejecutable truncado, lo daría por bueno con
+# [ -x ] y fallaría siempre. Por eso se extrae en una hermana, <final>.parcial, se mira que el ejecutable esté y se
+# pueda ejecutar, y solo entonces se renombra a la final (mv dentro de la misma .runtime/, que es atómico): en la final
+# solo puede aparecer una carpeta completa. Lo que deje una muerte a mitad es la .parcial, que borra borrar_parciales.
+# instalar_extraido <paquete> <carpeta final, …/.runtime/<nombre>> <ejecutable, relativo a la final> <carpeta de lo
+# extraído que pasa a ser la final, o «.» si es todo> [argumentos de tar…]. Si algo falla, borra la .parcial, deja la
+# final como estaba y devuelve 1. Una final que ya existe es de una instalación sin ejecutable (si no, no se llamaría):
+# se sustituye justo antes del mv, que si no la metería dentro de ella
+instalar_extraido() {
+  local paquete="${1:-}" final="${2:-}" ejecutable="${3:-}" origen="${4:-}" padre nombre parcial desde
+  [ -n "$paquete" ] && [ -n "$final" ] && [ -n "$ejecutable" ] && [ -n "$origen" ] || return 1
+  shift 4
+  # la final, siempre una carpeta directamente dentro de .runtime/ y nunca una .parcial
+  padre="${final%/*}"; nombre="${final##*/}"
+  [ "$padre" != "$final" ] && [ "${padre##*/}" = .runtime ] || return 1
+  case "$nombre" in ''|.|..|*.parcial) return 1 ;; esac
+  # el origen, dentro de lo extraído
+  case "$origen" in /*|..|../*|*/..|*/../*) return 1 ;; esac
+  parcial="$final.parcial"
+  if [ "$origen" = . ]; then desde="$parcial"; else desde="$parcial/$origen"; fi
+  rm -rf "$parcial" || return 1
+  # ${1+"$@"}: sin argumentos de tar, nada (el bash 3.2 de macOS con set -u no acepta "$@" vacío en todos los casos)
+  if mkdir "$parcial" && tar -xzf "$paquete" -C "$parcial" ${1+"$@"} \
+    && [ -f "$desde/$ejecutable" ] && [ -x "$desde/$ejecutable" ] \
+    && rm -rf "$final" && mv "$desde" "$final"; then
+    rm -rf "$parcial" || true   # con el origen «.» ya no está; si no, lo que sobró del paquete
+    return 0
+  fi
+  rm -rf "$parcial" || true
+  return 1
+}
+
+# Borra lo que dejó una instalación interrumpida (instalar_extraido): borrar_parciales <raíz> <prefijo>, con prefijo
+# node-v o pnpm- (cada paso del lanzador limpia lo suyo antes de decidir si descarga). Solo carpetas (nunca un enlace)
+# <raíz>/.runtime/<prefijo><versión>-<so>-<arq>.parcial con una versión de números y puntos. borrar_nodos_viejos y
+# borrar_pnpm_viejos no las tocan: su patrón termina en -<so>-<arq>. Sin raíz o con otro prefijo no borra nada y
+# devuelve 1
+borrar_parciales() {
+  local raiz="${1:-}" prefijo="${2:-}" d n v
+  [ -n "$raiz" ] || return 1
+  case "$prefijo" in node-v|pnpm-) ;; *) return 1 ;; esac
+  # sin coincidencias, el patrón queda tal cual y no es una carpeta: no se borra nada
+  for d in "$raiz/.runtime/$prefijo"*.parcial; do
+    [ -d "$d" ] && [ ! -L "$d" ] || continue
+    n="${d##*/}"; v="${n#"$prefijo"}"; v="${v%.parcial}"
+    case "$v" in *?-?*-?*) ;; *) continue ;; esac   # <versión>-<so>-<arq>
+    v="${v%%-*}"
+    case "$v" in ''|*[!0-9.]*|.*|*.|*..*) continue ;; esac   # solo versiones x.y.z de números
+    rm -rf "$d" || true
+  done
+  return 0
 }
 
 # Comprueba líneas «SUMA  archivo» que llegan por la entrada: sha256sum (Linux) o, si no está, shasum (macOS)
@@ -110,7 +273,7 @@ registro_desde_menu() {
   echo "== $(date '+%Y-%m-%d %H:%M:%S') · abierto desde el menú${1:+ · este arranque abre el refugio} =="
 }
 
-# Cerrojo del lanzador: dos ./shelter a la vez (un doble clic en el menú) no pueden preparar lo mismo a la vez (npm ci,
+# Cerrojo del lanzador: dos ./shelter a la vez (un doble clic en el menú) no pueden preparar lo mismo a la vez (pnpm,
 # Electron, el material, la compilación, el servidor) o se pisan en node_modules. Es una carpeta (mkdir es atómico en
 # macOS y en Linux, que no traen el mismo flock) con el pid del dueño dentro. tomar_cerrojo <carpeta> [segundos]: espera
 # como mucho esos segundos (SHELTER_ESPERA_CERROJO, 120 por omisión) avisando una vez; si el dueño ya no vive, el
@@ -172,7 +335,7 @@ electron_ya_descargado() {
 }
 
 # ./shelter no ha conseguido el cerrojo (otro arranque sigue preparando después de la espera): aquí nunca se prepara nada
-# (ni Node, ni npm ci, ni Electron, ni el material, ni la compilación), que sería pisar al otro. ya_abierto_sin_cerrojo
+# (ni Node, ni pnpm, ni Electron, ni el material, ni la compilación), que sería pisar al otro. ya_abierto_sin_cerrojo
 # <raíz> <puerto> <datos>. Dos caminos:
 # - Un servidor contesta /salud: el refugio ya está abierto. Desde la app de macOS se le pasa su dirección (la línea
 #   SHELTER_URL); si no, se lanza el Electron ya descargado, si lo está, y su cerrojo de una sola ventana

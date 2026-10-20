@@ -182,7 +182,7 @@ url = "https://mcp.linear.app/mcp"
 
 ## Pruebas
 
-`npm test` ejecuta `server/integraciones/*.test.ts` sin red: normalizadores contra `test/fixtures/` y los conectores
+`pnpm test` ejecuta `server/integraciones/*.test.ts` sin red: normalizadores contra `test/fixtures/` y los conectores
 completos con `fetch` simulado, llavero en memoria, el retorno de OAuth por localhost y un Gateway de Discord simulado
 en `127.0.0.1`. Los fixtures son sintéticos (personas, empresas y dominios inventados; no hay credenciales).
 

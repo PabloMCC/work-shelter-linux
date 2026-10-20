@@ -1,5 +1,5 @@
 // Desarrollo: servidor de work-shelter (con los orígenes de Vite permitidos) + Vite con recarga en caliente.
-// Uso: npm run dev   (SHELTER_DATOS=/ruta para no tocar los datos reales)
+// Uso: pnpm dev   (SHELTER_DATOS=/ruta para no tocar los datos reales)
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

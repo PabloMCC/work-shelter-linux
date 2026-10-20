@@ -22,7 +22,7 @@ secrets*
 # Sistema
 .DS_Store
 
-# Node portátil que descarga ./shelter si no hay uno
+# lo que descarga ./shelter (Node portátil si no hay uno, su pnpm) y el almacén y la caché de pnpm (pnpm-workspace.yaml)
 /.runtime/
 
 # Skills de agentes instaladas con autoskills: contenido de terceros con licencias variadas, no se redistribuye.

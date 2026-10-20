@@ -476,7 +476,7 @@ function aplicarCliente() {
 }
 
 // Reinicio desde la regleta: recompila el cliente si su código ha cambiado, comprueba que el servidor nuevo
-// carga y sale con el código 75 para que el supervisor (./shelter o npm run dev) lo vuelva a lanzar con el mismo
+// carga y sale con el código 75 para que el supervisor (./shelter o pnpm dev) lo vuelva a lanzar con el mismo
 // secreto. Las terminales siguen vivas en su anfitrión; las conversaciones de los habitantes se cortan y quedan
 // guardadas para retomarlas. Si algo falla, no se apaga nada y el juego sigue como estaba.
 // Abierto como app, si han cambiado archivos que solo se leen al abrirla (Electron, el supervisor, ./shelter; la app

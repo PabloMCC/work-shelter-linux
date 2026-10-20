@@ -1,6 +1,6 @@
-# Comprobación de cada cambio en Linux y macOS: instala sin ejecutar scripts de terceros, compila node-pty y
-# esbuild a propósito, y pasa el typecheck y los tests. Las acciones van fijadas por hash de commit (una etiqueta
-# se puede mover; un hash no) con la versión al lado.
+# Comprobación de cada cambio en Linux y macOS: instala con pnpm (solo ejecutan scripts de instalación los paquetes
+# de allowBuilds en pnpm-workspace.yaml) y pasa el typecheck y los tests. Las acciones van fijadas por hash de commit
+# (una etiqueta se puede mover; un hash no) con la versión al lado.
 name: CI
 
 on:
@@ -29,23 +29,25 @@ jobs:
         with:
           persist-credentials: false
 
+      # la versión de pnpm sale de packageManager en package.json
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: pnpm
 
-      # --include=dev por si el entorno trae NODE_ENV=production; --ignore-scripts para que ninguna dependencia
-      # ejecute código al instalarse. Solo se compilan las dos que lo necesitan. El binario de Electron no se
-      # descarga: los tests no deben depender de él (lo que necesite Electron va en los scripts qa-*).
+      # --frozen-lockfile: exactamente lo de pnpm-lock.yaml; --prod=false por si el entorno trae NODE_ENV=production.
+      # Solo ejecutan scripts de instalación los paquetes de allowBuilds (pnpm-workspace.yaml); cualquier otro hace
+      # fallar la instalación. El binario de Electron no se descarga: los tests no deben depender de él (lo que
+      # necesite Electron va en los scripts qa-*).
       - name: Instalar dependencias
-        run: |
-          npm ci --include=dev --ignore-scripts
-          npm rebuild node-pty esbuild
+        run: pnpm install --frozen-lockfile --prod=false
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Tests
-        run: npm test
+        run: pnpm test
         env:
           FORCE_COLOR: '0'

@@ -29,7 +29,7 @@ const ANEXO_PUENTE = [
   'Server changes (server/) need a restart: tell the user to choose «Reiniciar el juego» in the game menu (Esc) (it restarts the server and reloads the window without closing the game terminals); say so explicitly.',
   'Changes to electron/, the supervisor or ./shelter are also applied by «Reiniciar el juego» (the app reopens itself), and nothing is ever cached stale (the game revalidates every asset and clears its cache on launch):',
   'never ask the user to clear caches, reopen the app, reinstall it or run commands to see changes; those two options (or opening the app) are all they need, and if something still would not update, fix that in the game instead.',
-  'Run `npx tsc --noEmit -p .` and `npm test` before finishing.',
+  'Run `npx tsc --noEmit -p .` and `npx vitest run` before finishing (they only need Node, so they work without pnpm on the PATH).',
 ].join(' ');
 
 // La Octocat, en Control de Versiones, trabaja con git y GitHub en todos los repos del refugio (su carpeta es una propia)

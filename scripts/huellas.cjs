@@ -14,8 +14,8 @@ const path = require('node:path');
 
 const RAIZ = path.resolve(__dirname, '..');
 const GRUPOS = {
-  cliente: ['web', 'shared', 'vite.config.ts', 'tsconfig.json', 'package-lock.json'],
-  servidor: ['server', 'shared', 'package-lock.json', 'scripts/huellas.cjs'],
+  cliente: ['web', 'shared', 'vite.config.ts', 'tsconfig.json', 'pnpm-lock.yaml'],
+  servidor: ['server', 'shared', 'pnpm-lock.yaml', 'scripts/huellas.cjs'],
   app: ['electron', 'server/supervisor.mjs', 'shelter', 'scripts/huellas.cjs'],
 };
 const IGNORAR = new Set(['.DS_Store', 'node_modules', 'icono']);

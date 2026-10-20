@@ -29,8 +29,14 @@ Está pensado como aplicación local para una sola persona en su equipo:
 - **Una sola instancia**: una sola ventana del juego (otro arranque trae al frente la que ya hay) y un solo `./shelter`
   preparando a la vez (un cerrojo en `.runtime/`), para que dos arranques seguidos no instalen las dependencias a la
   vez.
-- **El Node portátil**: si no tienes Node 22, `./shelter` descarga el oficial y comprueba su suma SHA-256, fijada en el
+- **El Node portátil**: si no tienes Node 24, `./shelter` descarga el oficial y comprueba su suma SHA-256, fijada en el
   repo para cada versión y sistema, antes de usarlo; sin suma conocida no descarga nada.
+- **Las dependencias**: `./shelter` nunca usa un pnpm del sistema. Descarga el de `packageManager` (`package.json`)
+  del registro de npm y, antes de extraerlo, comprueba su huella sha512 contra la que guarda `pnpm-lock.yaml`; sin
+  ella no descarga nada. Instala exactamente lo del lockfile (`--frozen-lockfile`), y solo pueden ejecutar scripts al
+  instalarse los paquetes de `allowBuilds` en `pnpm-workspace.yaml` (node-pty, esbuild y fsevents): cualquier otro que
+  lo pida hace fallar la instalación. node-gyp, con el que node-pty se compila en Linux, también va fijado en el
+  lockfile, para no depender del que tenga (o no) el sistema.
 - **Archivos**: el explorador, el cliente de git y los adjuntos trabajan dentro de las carpetas de las salas. Borrar es
   mandar a la papelera del sistema (`gio trash` en Linux); sin papelera no se borra.
 - **Imágenes adjuntas**: salen siempre sin metadatos ocultos (como la posición GPS de una foto) antes de llegar a
@@ -67,14 +73,15 @@ Lo que **no** cubre, por diseño o porque nadie lo ha resuelto:
   traer otras cosas que se ejecutan al tocarla, como filtros o ganchos en su `.git/config`, o tareas que abra tu editor.
   No vincules como sala una carpeta en la que no confíes.
 - **El Puente de Mando** trabaja sobre el código del propio juego, y ese código se ejecuta al reiniciar o al abrir la
-  app (incluido `npm ci` si cambia `package-lock.json`). Aprobar ediciones ahí equivale a aprobar que se ejecuten.
+  app (incluido `pnpm install` si cambian `pnpm-lock.yaml` o `pnpm-workspace.yaml`). Aprobar ediciones ahí equivale
+  a aprobar que se ejecuten.
 - **La instalación con `curl … | bash`** (solo macOS, y del proyecto original) ejecuta `instalar.sh` tal como esté en
   GitHub en ese momento y, después, el código del repo que descarga. Léelo antes si quieres, o clona el repo y usa
   `./shelter instalar-app`.
 - **La app instalada** (`/Applications/work-shelter-public.app` en macOS; en Linux, la entrada del menú de
   `./shelter instalar-app`) carga el código de la carpeta del juego: quien pueda escribir en esa carpeta puede cambiar
   lo que hace la app. En macOS, volver a ejecutar el instalador trae y ejecuta lo último que haya en el repo.
-- **Modo desarrollo** (`npm run dev`): Vite sirve los archivos de la carpeta del juego a cualquier proceso local, y entre
+- **Modo desarrollo** (`pnpm dev`): Vite sirve los archivos de la carpeta del juego a cualquier proceso local, y entre
   ellos está `.data/token`, el secreto con el que se maneja el refugio (terminales incluidas). Úsalo solo en un equipo
   donde te fíes de todo lo que corre y, si quieres, con `SHELTER_DATOS` apuntando fuera del repo.
 - **El Chrome de Spotify y el del inicio de sesión con Google** (de momento solo en macOS) se manejan por su protocolo

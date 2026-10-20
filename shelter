@@ -12,7 +12,9 @@ RAIZ="$(pwd)"
 source scripts/plataforma.sh
 # desde el menú, la salida se añade a shelter.log; solo se empieza uno nuevo si este arranque abre el servidor (paso 6)
 if [ -n "${SHELTER_DESDE_MENU:-}" ]; then registro_desde_menu || true; fi
-NODO_VERSION="22.20.0"
+NODO_VERSION="24.22.0"
+# el Node mínimo es el de NODO_VERSION (scripts/plataforma.sh, nodo_minimo): el del sistema vale si llega a él
+NODO_MINIMO="$(nodo_minimo "$NODO_VERSION")" || { printf 'NODO_VERSION no es una versión x.y.z: «%s»\n' "$NODO_VERSION" >&2; exit 1; }
 if [ -n "${SHELTER_DESDE_MENU:-}" ]; then   # al registro, sin colores
   amarillo() { printf '%s\n' "$*"; }; verde() { printf '%s\n' "$*"; }; rojo() { printf '%s\n' "$*" >&2; }
 else
@@ -33,15 +35,16 @@ if [ -n "$DESINSTALAR_APP" ]; then desinstalar_app_disponible || exit 1; fi
 
 # Carpeta del Node portátil (relativa a la raíz): carpeta_nodo <so> <arq>. Es también el nombre de su descarga
 carpeta_nodo() { echo ".runtime/node-v$NODO_VERSION-$1-$2"; }
-# Usa el Node de una carpeta del portátil: deja NODE y NPM apuntando a él y su bin/ al principio del PATH
-usar_nodo_portatil() { export PATH="$RAIZ/$1/bin:$PATH"; NODE="$RAIZ/$1/bin/node"; NPM="$RAIZ/$1/bin/npm"; }
-# El Node que ya hay: el del sistema si es 22 o superior, o el portátil ya descargado en .runtime/. No descarga nada;
-# solo cambia NODE, NPM y el PATH
+# Usa el Node de una carpeta del portátil: deja NODE apuntando a él y su bin/ al principio del PATH (también para los
+# scripts de instalación de las dependencias, que pnpm ejecuta con el node del PATH)
+usar_nodo_portatil() { export PATH="$RAIZ/$1/bin:$PATH"; NODE="$RAIZ/$1/bin/node"; }
+# El Node que ya hay: el del sistema si llega a NODO_MINIMO, o el portátil ya descargado en .runtime/. No descarga nada;
+# solo cambia NODE y el PATH
 nodo_disponible() {
-  if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
-    NODE="$(command -v node)"; NPM="$(command -v npm)"; return 0
+  if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge "$NODO_MINIMO" ]; then
+    NODE="$(command -v node)"; return 0
   fi
-  local so arq dir; so="$(so_node 2>/dev/null)" || return 1; arq="$(arq_node 2>/dev/null)" || return 1
+  local so arq dir; so="$(so_node 2>/dev/null)" || return 1; arq="$(arq_node "$NODO_VERSION" 2>/dev/null)" || return 1
   dir="$(carpeta_nodo "$so" "$arq")"
   [ -x "$dir/bin/node" ] || return 1
   usar_nodo_portatil "$dir"
@@ -63,17 +66,26 @@ DATOS="${SHELTER_DATOS:-$RAIZ/.data}"
 trap 'soltar_cerrojo' EXIT
 if ! tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"; then ya_abierto_sin_cerrojo "$RAIZ" "$PUERTO" "$DATOS" && exit 0; exit 1; fi
 
-# 1. Node 22+ (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
+# 1. Node NODO_MINIMO o superior (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
+# antes, fuera lo que dejó a medias una descarga interrumpida (scripts/plataforma.sh, borrar_parciales)
+borrar_parciales "$RAIZ" node-v || true
 if ! nodo_disponible; then
-  SO="$(so_node)"; ARQ="$(arq_node)"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
+  SO="$(so_node)"; ARQ="$(arq_node "$NODO_VERSION")"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
   DIR="$(carpeta_nodo "$SO" "$ARQ")"
-  amarillo "No encuentro Node 22 o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
+  amarillo "No encuentro Node $NODO_MINIMO o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
   mkdir -p .runtime
-  curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/${DIR#.runtime/}.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
+  curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/${DIR#.runtime/}.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
   # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
-  echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 22 desde https://nodejs.org"; exit 1; }
-  tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
+  echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
+  # se extrae aparte y la carpeta final solo aparece entera (scripts/plataforma.sh, instalar_extraido): ni un fallo
+  # (disco lleno, descarga cortada) ni una muerte a mitad dejan en ella un bin/node que el siguiente arranque daría por
+  # bueno. Si falla, no se sigue
+  instalar_extraido .runtime/node.tar.gz "$DIR" bin/node "${DIR#.runtime/}" || { rm -f .runtime/node.tar.gz; rojo "No he podido descomprimir el Node descargado (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter o instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
+  rm .runtime/node.tar.gz
   usar_nodo_portatil "$DIR"
+  # con el nuevo ya en su sitio, fuera los portátiles anteriores: una actualización deja el viejo y Electron añade al
+  # PATH el bin/ de cada uno
+  [ -x "$DIR/bin/node" ] && borrar_nodos_viejos "$RAIZ" "$DIR" "$SO" "$ARQ" || true
 fi
 
 if [ -n "$DESINSTALAR_APP" ]; then soltar_cerrojo; exec "$NODE" scripts/instalar-app-linux.mjs --desinstalar; fi
@@ -85,12 +97,35 @@ if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; th
   rojo "  work-shelter se abrirá igualmente, pero los habitantes no podrán trabajar hasta entonces."
 fi
 
-# 3. Dependencias (la primera vez, o si cambia package-lock.json)
+# 3. Dependencias (la primera vez, o si cambia pnpm-lock.yaml o pnpm-workspace.yaml, que dice qué paquetes pueden
+# ejecutar scripts al instalarse)
 SELLO="node_modules/.sello-shelter"
-HUELLA="$(huella_de package-lock.json)"
+HUELLA="$(huella_de pnpm-lock.yaml) $(huella_de pnpm-workspace.yaml)"
 if [ ! -f "$SELLO" ] || [ "$(cat "$SELLO")" != "$HUELLA" ]; then
+  # 3a. pnpm, el de packageManager en package.json y nunca uno del sistema (scripts/plataforma.sh, version_pnpm). Si no
+  # está en .runtime/, se descarga del registro de npm y no se extrae nada que no cuadre con la integridad sha512 que
+  # guarda pnpm-lock.yaml
+  PNPM_VERSION="$(version_pnpm "$NODE" package.json)" || { rojo "package.json no dice qué pnpm usar (packageManager «pnpm@x.y.z»)."; exit 1; }
+  SO="$(so_node)"; ARQ="$(arq_node "$NODO_VERSION")"
+  PDIR="$(carpeta_pnpm "$PNPM_VERSION" "$SO" "$ARQ")"; PNPM="$RAIZ/$PDIR/pnpm"
+  borrar_parciales "$RAIZ" pnpm- || true   # lo que dejó a medias una instalación interrumpida
+  if [ ! -x "$PNPM" ]; then
+    INTEGRIDAD="$(integridad_pnpm pnpm-lock.yaml "$PNPM_VERSION" "$SO" "$ARQ")" || { rojo "No sé qué pnpm esperar para este sistema: no descargo nada."; exit 1; }
+    amarillo "Descargando pnpm $PNPM_VERSION para instalar las dependencias (solo esta vez)…"
+    mkdir -p .runtime
+    curl -fL --progress-bar "$(url_pnpm "$PNPM_VERSION" "$SO" "$ARQ")" -o .runtime/pnpm.tgz || { rm -f .runtime/pnpm.tgz; rojo "No he podido descargar pnpm. Comprueba la conexión y vuelve a ejecutar ./shelter"; exit 1; }
+    sha512_comprobar "$NODE" .runtime/pnpm.tgz "$INTEGRIDAD" || { rm -f .runtime/pnpm.tgz; rojo "El pnpm descargado no cuadra con su huella de pnpm-lock.yaml: no lo uso."; exit 1; }
+    # del paquete solo hace falta el ejecutable, extraído aparte: la carpeta final solo aparece con él entero y
+    # ejecutable (scripts/plataforma.sh, instalar_extraido). Si falla, no queda nada a medias
+    instalar_extraido .runtime/pnpm.tgz "$PDIR" pnpm . --strip-components=1 package/pnpm || { rm -f .runtime/pnpm.tgz; rojo "No he podido descomprimir pnpm (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter"; exit 1; }
+    rm .runtime/pnpm.tgz
+    # con el nuevo ya en su sitio, fuera los anteriores de este sistema
+    borrar_pnpm_viejos "$RAIZ" "$PDIR" "$SO" "$ARQ" || true
+  fi
   amarillo "Instalando dependencias (la primera vez tarda un par de minutos)…"
-  "$NPM" ci --no-audit --no-fund --loglevel=error || { rojo "Falló la instalación de dependencias (npm ci)."; exit 1; }
+  # siempre también las de desarrollo (--prod=false: Electron y Vite lo son, aunque llegue NODE_ENV=production), sin
+  # tocar el lockfile y sin que pnpm se cambie solo de versión (--pm-on-fail=error)
+  "$PNPM" install --frozen-lockfile --prod=false --pm-on-fail=error --loglevel=error || { rojo "Falló la instalación de dependencias (pnpm install)."; exit 1; }
   echo "$HUELLA" > "$SELLO"
 fi
 

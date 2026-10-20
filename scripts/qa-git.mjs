@@ -1,7 +1,7 @@
 // QA de Control de Versiones: la sala (matriz, la Octocat) y el cliente de git de punta a punta sobre un repo de
 // prueba (preparar un bloque, una línea suelta, commit, historial, ramas, GitHub).
 // Uso, con un refugio de pruebas (nunca con tus repos):
-//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 npm run dev   (en otra terminal)
+//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 pnpm dev   (en otra terminal)
 //   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-git.mjs <repo-de-prueba> [carpeta-de-capturas]
 // El repo de prueba se recluta en el refugio de pruebas si no tiene sala. Hace commits en él.
 import { chromium } from 'playwright';
