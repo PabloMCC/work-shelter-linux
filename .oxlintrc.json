@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Con tipos (oxlint-tsgolint, que usa TypeScript 7): reglas como no-floating-promises necesitan saber qué es
+  // una promesa
+  "options": { "typeAware": true },
+  // Todo es error. Lo que ya incumplía estas reglas antes de introducir el linter está contado, por archivo y
+  // regla, en oxlint-suppressions.json, que genera el propio Oxlint: lo nuevo falla, y lo arreglado obliga a bajar
+  // la cuenta (pnpm lint:prune). Cómo se usa: AGENTS.md, «Pruebas».
+  "categories": { "correctness": "error" },
+  "rules": {
+    "typescript/no-floating-promises": "error",
+    "eslint/no-unused-vars": "error",
+    "typescript/no-base-to-string": "error",
+    "unicorn/prefer-string-starts-ends-with": "error",
+    "eslint/no-unused-expressions": "error",
+    "unicorn/no-useless-spread": "error",
+    "unicorn/no-useless-fallback-in-spread": "error",
+    "eslint/no-control-regex": "error",
+    "unicorn/no-new-array": "error",
+    "typescript/require-array-sort-compare": "error",
+    "eslint/no-eval": "error",
+    "oxc/erasing-op": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-implied-eval": "error",
+    "eslint/no-self-assign": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/await-thenable": "error",
+    "typescript/unbound-method": "error"
+  }
+}

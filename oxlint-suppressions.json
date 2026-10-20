@@ -1,0 +1,651 @@
+{
+  "electron/chromeRemoto.cjs": {
+    "no-unused-expressions": {
+      "count": 1
+    },
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "electron/loginChrome.cjs": {
+    "no-unused-expressions": {
+      "count": 1
+    },
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 1
+    }
+  },
+  "electron/main.cjs": {
+    "no-control-regex": {
+      "count": 1
+    },
+    "no-unused-expressions": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 9
+    }
+  },
+  "electron/mandoMusica.js": {
+    "typescript/unbound-method": {
+      "count": 1
+    }
+  },
+  "scripts/construir-octocat.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "scripts/huellas.cjs": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "scripts/instalar-app-linux.mjs": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "scripts/qa-adjuntos-voz.mjs": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "scripts/qa-chapa.mjs": {
+    "typescript/require-array-sort-compare": {
+      "count": 1
+    }
+  },
+  "scripts/qa-copias.mjs": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 1
+    }
+  },
+  "scripts/qa-decorado.mjs": {
+    "no-unused-expressions": {
+      "count": 1
+    },
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "scripts/qa-discoteca.mjs": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "scripts/qa-intercom.mjs": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "scripts/qa-navegador-webs.cjs": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "scripts/qa-navegador.mjs": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "scripts/qa-sesion.mjs": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "scripts/qa-spotify-chrome.cjs": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "scripts/qa-superficie.mjs": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "server/anfitrionTerminales.ts": {
+    "no-control-regex": {
+      "count": 3
+    },
+    "unicorn/no-useless-spread": {
+      "count": 1
+    }
+  },
+  "server/archivos.ts": {
+    "typescript/no-base-to-string": {
+      "count": 3
+    }
+  },
+  "server/atrezo.ts": {
+    "unicorn/no-new-array": {
+      "count": 1
+    }
+  },
+  "server/estado.ts": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "server/git.ts": {
+    "typescript/no-base-to-string": {
+      "count": 4
+    },
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 2
+    }
+  },
+  "server/integraciones/comun.ts": {
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 1
+    }
+  },
+  "server/integraciones/conectores.test.ts": {
+    "typescript/no-base-to-string": {
+      "count": 4
+    }
+  },
+  "server/integraciones/discord.ts": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "server/integraciones/google.ts": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "server/integraciones/index.ts": {
+    "typescript/no-floating-promises": {
+      "count": 2
+    },
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 1
+    }
+  },
+  "server/integraciones/linear.ts": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "server/integraciones/normalizar.ts": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "server/juego.ts": {
+    "unicorn/no-useless-spread": {
+      "count": 1
+    }
+  },
+  "server/main.ts": {
+    "no-unused-vars": {
+      "count": 3
+    },
+    "typescript/no-base-to-string": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "server/repos.ts": {
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 2
+    }
+  },
+  "server/sesiones.test.ts": {
+    "typescript/no-floating-promises": {
+      "count": 3
+    }
+  },
+  "server/sesiones.ts": {
+    "typescript/no-base-to-string": {
+      "count": 2
+    },
+    "typescript/no-floating-promises": {
+      "count": 2
+    },
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 2
+    }
+  },
+  "server/superficie.ts": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "server/terminales.ts": {
+    "typescript/no-floating-promises": {
+      "count": 3
+    },
+    "unicorn/no-useless-spread": {
+      "count": 2
+    }
+  },
+  "server/voz.ts": {
+    "unicorn/no-useless-spread": {
+      "count": 1
+    }
+  },
+  "shared/catalogo.ts": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "test/capacidades.test.ts": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "test/caracterizacion-servidor.test.ts": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    }
+  },
+  "test/instalar-app-linux.test.ts": {
+    "typescript/require-array-sort-compare": {
+      "count": 2
+    }
+  },
+  "test/servidor.test.ts": {
+    "typescript/no-base-to-string": {
+      "count": 3
+    }
+  },
+  "web/src/audio/sonido.ts": {
+    "typescript/no-floating-promises": {
+      "count": 4
+    }
+  },
+  "web/src/herramientas/figuras.ts": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "web/src/main.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "web/src/motor/texturas.ts": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/ascensor.ts": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "typescript/no-floating-promises": {
+      "count": 3
+    }
+  },
+  "web/src/mundo/ayudantes.ts": {
+    "typescript/no-floating-promises": {
+      "count": 6
+    }
+  },
+  "web/src/mundo/cielo.ts": {
+    "typescript/no-this-alias": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/figura/fuentes.ts": {
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/figura/montaje.ts": {
+    "unicorn/no-new-array": {
+      "count": 3
+    }
+  },
+  "web/src/mundo/habitante.ts": {
+    "typescript/no-floating-promises": {
+      "count": 2
+    },
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 2
+    }
+  },
+  "web/src/mundo/hologramas.ts": {
+    "typescript/no-floating-promises": {
+      "count": 6
+    },
+    "typescript/no-misused-spread": {
+      "count": 1
+    },
+    "unicorn/no-useless-spread": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/octocat.ts": {
+    "unicorn/no-useless-spread": {
+      "count": 1
+    },
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 3
+    }
+  },
+  "web/src/mundo/personaje.ts": {
+    "unicorn/no-useless-spread": {
+      "count": 1
+    },
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 2
+    }
+  },
+  "web/src/mundo/refugio.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 29
+    },
+    "unicorn/no-useless-spread": {
+      "count": 2
+    }
+  },
+  "web/src/mundo/retrato.ts": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/roca.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "unicorn/no-new-array": {
+      "count": 2
+    }
+  },
+  "web/src/mundo/salas/bailarines.ts": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/salas/camara.ts": {
+    "typescript/no-floating-promises": {
+      "count": 11
+    }
+  },
+  "web/src/mundo/salas/chapa.ts": {
+    "typescript/no-floating-promises": {
+      "count": 8
+    }
+  },
+  "web/src/mundo/salas/comun.ts": {
+    "no-unused-vars": {
+      "count": 4
+    },
+    "typescript/no-floating-promises": {
+      "count": 6
+    }
+  },
+  "web/src/mundo/salas/discoteca.ts": {
+    "typescript/no-floating-promises": {
+      "count": 7
+    }
+  },
+  "web/src/mundo/salas/generica.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 15
+    }
+  },
+  "web/src/mundo/salas/git.ts": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "typescript/no-floating-promises": {
+      "count": 4
+    }
+  },
+  "web/src/mundo/salas/landing.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 12
+    }
+  },
+  "web/src/mundo/salas/marca.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 12
+    }
+  },
+  "web/src/mundo/salas/ocio.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 18
+    },
+    "unicorn/no-useless-spread": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/salas/operativas.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 22
+    },
+    "typescript/no-misused-spread": {
+      "count": 1
+    }
+  },
+  "web/src/mundo/salas/plantillas.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 56
+    }
+  },
+  "web/src/mundo/salas/puente.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 7
+    }
+  },
+  "web/src/mundo/salas/servicio.ts": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 10
+    }
+  },
+  "web/src/mundo/salas/tallerWeb.ts": {
+    "typescript/no-floating-promises": {
+      "count": 20
+    }
+  },
+  "web/src/mundo/salas/video.ts": {
+    "typescript/no-floating-promises": {
+      "count": 3
+    }
+  },
+  "web/src/mundo/tiro.ts": {
+    "typescript/no-floating-promises": {
+      "count": 2
+    }
+  },
+  "web/src/mundo/visitantes.ts": {
+    "typescript/no-floating-promises": {
+      "count": 2
+    }
+  },
+  "web/src/red/cliente.ts": {
+    "no-unused-expressions": {
+      "count": 1
+    },
+    "typescript/no-redundant-type-constituents": {
+      "count": 1
+    }
+  },
+  "web/src/ui/Actividades.tsx": {
+    "no-unused-expressions": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 3
+    },
+    "typescript/no-floating-promises": {
+      "count": 28
+    }
+  },
+  "web/src/ui/Barra.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 7
+    }
+  },
+  "web/src/ui/Buscador.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 7
+    }
+  },
+  "web/src/ui/Camara.tsx": {
+    "no-unused-expressions": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 11
+    },
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 1
+    }
+  },
+  "web/src/ui/Dialogo.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 23
+    }
+  },
+  "web/src/ui/Discoteca.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 13
+    },
+    "unicorn/prefer-string-starts-ends-with": {
+      "count": 1
+    }
+  },
+  "web/src/ui/Navegadores.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 11
+    }
+  },
+  "web/src/ui/Operativas.tsx": {
+    "no-unused-expressions": {
+      "count": 2
+    },
+    "typescript/no-floating-promises": {
+      "count": 26
+    }
+  },
+  "web/src/ui/Paneles.tsx": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 12
+    }
+  },
+  "web/src/ui/PanelesSala.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 13
+    }
+  },
+  "web/src/ui/Probador.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 19
+    }
+  },
+  "web/src/ui/Puente.tsx": {
+    "no-unused-expressions": {
+      "count": 2
+    },
+    "typescript/no-floating-promises": {
+      "count": 6
+    },
+    "unicorn/no-useless-fallback-in-spread": {
+      "count": 1
+    }
+  },
+  "web/src/ui/Terminales.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 9
+    }
+  },
+  "web/src/ui/aparato.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 6
+    }
+  },
+  "web/src/ui/archivos/Explorador.tsx": {
+    "no-unused-expressions": {
+      "count": 2
+    },
+    "typescript/no-floating-promises": {
+      "count": 35
+    }
+  },
+  "web/src/ui/archivos/ventana.ts": {
+    "typescript/no-floating-promises": {
+      "count": 5
+    }
+  },
+  "web/src/ui/capacidades.ts": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "web/src/ui/entrada.tsx": {
+    "typescript/no-base-to-string": {
+      "count": 1
+    },
+    "typescript/no-floating-promises": {
+      "count": 12
+    }
+  },
+  "web/src/ui/git/ClienteGit.tsx": {
+    "typescript/no-floating-promises": {
+      "count": 13
+    }
+  },
+  "web/src/ui/git/ventana.ts": {
+    "typescript/no-floating-promises": {
+      "count": 5
+    }
+  },
+  "web/src/ui/markdown.ts": {
+    "typescript/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "web/src/ui/superficie.ts": {
+    "typescript/no-floating-promises": {
+      "count": 2
+    }
+  },
+  "web/src/ui/textoPlano.tsx": {
+    "no-control-regex": {
+      "count": 1
+    }
+  }
+}

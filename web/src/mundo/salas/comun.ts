@@ -146,6 +146,7 @@ export async function caraRoca(padre: THREE.Group, x0: number, x1: number, y0: n
   }
   // piedras en relieve: medio hundidas y aplastadas contra la cara, con la misma luz
   const tipos = ['Rock_1', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5', 'Rock_6', 'Rock_7'];
+  // oxlint-disable-next-line oxc/erasing-op -- desactivado a propósito (el 0 apaga los peñascos); se deja la fórmula para volver a usarla
   const n = 0 * Math.round((x1 - x0) * (y1 - y0) / 30 * densidad); // sin peñascos: la cara de corte es lisa, con estratos
   const p = new THREE.Vector2();
   const ps: Promise<unknown>[] = [];
@@ -201,7 +202,7 @@ export async function paredes(g: THREE.Group, ancho: number, v: Variante, panele
   for (const s of [-1, 1]) {
     const abierto = s < 0 ? pasos.izq : pasos.der;
     const largo = abierto ? FONDO / 2 + 0.3 : FONDO + 0.2;
-    ps.push(colocar(g, R.sf('Wall_Empty'), { pos: [s * (ancho / 2 + 0.02), 0, -FONDO / 2 + 0.25], rot: -s * Math.PI / 2, ancla: 'atras', variante: vl, sombra: false, alto: ALTO }).then(o => { o.scale.x = largo / MODULO; o.position.z += (largo - MODULO) / 2 * 0 + (largo - MODULO) / 2; o.scale.z = 0.35; }));
+    ps.push(colocar(g, R.sf('Wall_Empty'), { pos: [s * (ancho / 2 + 0.02), 0, -FONDO / 2 + 0.25], rot: -s * Math.PI / 2, ancla: 'atras', variante: vl, sombra: false, alto: ALTO }).then(o => { o.scale.x = largo / MODULO; o.position.z += (largo - MODULO) / 2; o.scale.z = 0.35; }));
     ps.push(colocar(g, R.sf('Column_Slim'), { pos: [s * (ancho / 2 - 0.3), 0, -FONDO / 2 + 0.32], alto: ALTO, variante: v, sombra: false }));
     if (abierto) ps.push(colocar(g, R.sf('Column_1'), { pos: [s * (ancho / 2 - 0.05), 0, -FONDO / 2 + largo + 0.05], alto: ALTO, variante: v, sombra: false }));
   }

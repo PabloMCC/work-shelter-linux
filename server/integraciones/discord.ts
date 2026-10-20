@@ -24,7 +24,7 @@ export const CAMPOS_DISCORD: Campo[] = [
 
 class Discord extends ConectorBase {
   id = 'discord' as const;
-  intervaloMs = 15_000;
+  override intervaloMs = 15_000;
   private ws: WebSocket | null = null;
   private latido: NodeJS.Timeout | null = null;
   private primerLatido: NodeJS.Timeout | null = null;
@@ -221,7 +221,7 @@ class Discord extends ConectorBase {
     const espera = c.sinContenido ? 1000 : Math.min(60_000, 1000 * 2 ** this.intentos++) + Math.random() * 1000;
     this.reconexion = setTimeout(() => { this.reconexion = null; this.conectar().catch(e => this.mal(mensaje(e))); }, espera);
   }
-  protected alReiniciar() {
+  protected override alReiniciar() {
     this.detenido = true;
     if (this.reconexion) { clearTimeout(this.reconexion); this.reconexion = null; }
     this.pararLatido();
@@ -250,7 +250,7 @@ class Discord extends ConectorBase {
     if (!servidores.length) return { ok: false, detalle: `El token es válido (bot «${a.nombre}»), pero el bot no está en ningún servidor. Pulsa «Invitar el bot a mi servidor»: ${invitacionDiscord(a.id)}` };
     return { ok: true, detalle: `Bot «${a.nombre}» en ${servidores.map(s => s.name).join(', ')}. ${contenido ? '«Message Content Intent» activado.' : 'Aviso: «Message Content Intent» está desactivado en el portal (Bot → Privileged Gateway Intents); se verán los avisos pero no el texto.'}` };
   }
-  protected async accionPropia(nombre: string, d: Record<string, any>) {
+  protected override async accionPropia(nombre: string, d: Record<string, any>) {
     if (nombre === 'invitacion') { const a = this.app ?? await this.cargarApp(); return { url: invitacionDiscord(a.id, d.guild) }; }
     if (nombre === 'canales') {   // para el selector de la cámara acorazada, una vez conectado
       const el = this.elegidos();

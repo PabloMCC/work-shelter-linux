@@ -10,6 +10,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "lib": [
       "ES2023",
       "DOM",
@@ -18,10 +21,9 @@
     "types": [
       "node"
     ],
-    "baseUrl": ".",
     "paths": {
       "@shared/*": [
-        "shared/*"
+        "./shared/*"
       ]
     },
     "allowImportingTsExtensions": true

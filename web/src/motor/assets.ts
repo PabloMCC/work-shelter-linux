@@ -113,7 +113,6 @@ export async function colocar(padre: THREE.Object3D, ruta: string, c: Colocacion
     if (ancla === 'centro') y = -(box.min.y + box.max.y) / 2 * s;
     if (ancla === 'techo') y = -box.max.y * s;
     obj.position.set(obj.position.x * s - cx, obj.position.y * s + y, obj.position.z * s - (ancla === 'atras' ? box.min.z * s : cz));
-    if (ancla === 'atras') obj.position.x = obj.position.x; // apoyado contra la pared (z mínima en 0)
   }
   if (c.pos) envoltorio.position.set(...c.pos);
   envoltorio.rotation.set(c.rotX ?? 0, c.rot ?? 0, c.rotZ ?? 0);

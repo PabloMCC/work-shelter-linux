@@ -30,7 +30,7 @@ export const haySesionMicrosoft = () => leerSecreto(CUENTA_SESION).then(v => !!v
 
 class Outlook extends ConectorBase {
   id = 'outlook' as const;
-  intervaloMs = 60_000;
+  override intervaloMs = 60_000;
   private acceso: { token: string; caduca: number } | null = null;
   private yo: YoMicrosoft | null = null;
   private sesion = false;          // hay refresh token en el llavero
@@ -40,10 +40,10 @@ class Outlook extends ConectorBase {
   private get cliente() { return this.config.publicos().clientId ?? ''; }
   private get autoridad() { return autoridad(this.config.publicos().tenant); }
 
-  protected listo() { return !!this.cliente && this.sesion; }
-  protected faltaConfig() { return this.cliente ? SIN_SESION : SIN_CLIENTE; }
-  protected alReiniciar() { this.acceso = null; this.yo = null; this.ultimoCalendario = 0; }
-  async sondear() { this.sesion = await haySesionMicrosoft(); return super.sondear(); }
+  protected override listo() { return !!this.cliente && this.sesion; }
+  protected override faltaConfig() { return this.cliente ? SIN_SESION : SIN_CLIENTE; }
+  protected override alReiniciar() { this.acceso = null; this.yo = null; this.ultimoCalendario = 0; }
+  override async sondear() { this.sesion = await haySesionMicrosoft(); return super.sondear(); }
 
   // ------------------------------------------------ OAuth
   private async token(cuerpo: Record<string, string>) {
@@ -125,11 +125,11 @@ class Outlook extends ConectorBase {
     try { this.acceso = null; this.yo = null; const yo = await this.quienSoy(); return { ok: true, detalle: `Conectado como ${yo.nombre ?? ''} (${yo.correo ?? ''}).` }; }
     catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
-  async accion(nombre: string, d: Record<string, any>) {
+  override async accion(nombre: string, d: Record<string, any>) {
     if (nombre === 'olvidar') await borrarSecreto(CUENTA_SESION);
     return super.accion(nombre, d);
   }
-  protected async accionPropia(nombre: string, d: Record<string, any>) {
+  protected override async accionPropia(nombre: string, d: Record<string, any>) {
     if (nombre === 'conectar') {
       const url = await this.iniciarSesion();
       if (d.abrir !== false) abrirUrl(url);   // navegador del sistema (sesión de Microsoft ya abierta)
@@ -138,7 +138,7 @@ class Outlook extends ConectorBase {
     if (nombre === 'desconectar') { await borrarSecreto(CUENTA_SESION); this.sesion = false; this.reiniciar(); this.avisar?.('estado'); return this.estado(); }
     return super.accionPropia(nombre, d);
   }
-  parar() { super.parar(); this.escucha?.parar(); }
+  override parar() { super.parar(); this.escucha?.parar(); }
 }
 
 export function crear(almacen: Almacen) { return new Outlook(almacen); }

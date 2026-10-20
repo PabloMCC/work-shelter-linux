@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
 import { join, normalize, extname, resolve } from 'node:path';
 
-const ASSETS = resolve(__dirname, 'assets');
+const ASSETS = resolve(import.meta.dirname, 'assets');
 const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);
 const TIPOS: Record<string, string> = { '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.png': 'image/png', '.jpg': 'image/jpeg', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
 
@@ -27,7 +27,7 @@ function servirAssets(): Plugin {
 // `pnpm dev` abre la URL con #t=<token>. Solo para la QA automatizada, y a sabiendas, SHELTER_TOKEN_EN_PAGINA=1
 // lo inyecta como antes.
 function tokenDesarrollo(): Plugin {
-  const archivo = join(resolve(process.env.SHELTER_DATOS || join(__dirname, '.data')), 'token');
+  const archivo = join(resolve(process.env.SHELTER_DATOS || join(import.meta.dirname, '.data')), 'token');
   return {
     name: 'refugio-token',
     apply: 'serve',   // solo en desarrollo: la compilación nunca lleva el secreto
@@ -42,8 +42,8 @@ function tokenDesarrollo(): Plugin {
 export default defineConfig({
   root: 'web',
   plugins: [react(), servirAssets(), tokenDesarrollo()],
-  resolve: { alias: { '@shared': resolve(__dirname, 'shared') } },
+  resolve: { alias: { '@shared': resolve(import.meta.dirname, 'shared') } },
   // el proxy va al servidor del refugio en su puerto (SHELTER_PUERTO): un refugio de pruebas no toca el de verdad
   server: { host: '127.0.0.1', port: Number(process.env.SHELTER_PUERTO_VITE || 5173), strictPort: true, proxy: { '/ws': { target: `ws://127.0.0.1:${PUERTO}`, ws: true }, '/api': `http://127.0.0.1:${PUERTO}` } },
-  build: { outDir: '../dist/web', emptyOutDir: true, chunkSizeWarningLimit: 4500, rollupOptions: { input: { main: resolve(__dirname, 'web/index.html'), catalogo: resolve(__dirname, 'web/catalogo.html') } } },
+  build: { outDir: '../dist/web', emptyOutDir: true, chunkSizeWarningLimit: 4500, rolldownOptions: { input: { main: resolve(import.meta.dirname, 'web/index.html'), catalogo: resolve(import.meta.dirname, 'web/catalogo.html') } } },
 });

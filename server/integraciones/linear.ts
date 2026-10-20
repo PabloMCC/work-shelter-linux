@@ -40,11 +40,11 @@ export function filtroTablero(d: { prioridad?: 'alta'; etiqueta?: string; proyec
 
 class Linear extends ConectorBase {
   id = 'linear' as const;
-  intervaloMs = 60_000;
+  override intervaloMs = 60_000;
   private quien: any = null;
   private panel: { misIssues: ReturnType<typeof agruparMisIssues>; ciclos: ReturnType<typeof ciclosDeEquipos>; cuando: number } | null = null;
   constructor(almacen: Almacen) { super(almacen, new ConfigFuente(almacen, 'linear', CAMPOS_LINEAR)); }
-  protected alReiniciar() { this.quien = null; this.panel = null; }
+  protected override alReiniciar() { this.quien = null; this.panel = null; }
 
   async gql(consulta: string, variables: Record<string, unknown> = {}, clave?: string): Promise<any> {
     const k = clave ?? await this.config.secreto('apiKey');
@@ -81,7 +81,7 @@ class Linear extends ConectorBase {
     return { ok: true, detalle: `Conectado como ${yo.name} en ${yo.organization?.name}. Equipos: ${(yo.teams?.nodes ?? []).map((t: any) => t.key).join(', ') || 'ninguno'}.` };
   }
   // Paneles (solo lectura): mis issues por estado, ciclo actual por equipo y tablero de un equipo con filtros
-  protected async accionPropia(nombre: string, d: Record<string, any>) {
+  protected override async accionPropia(nombre: string, d: Record<string, any>) {
     if (nombre === 'panel') { const p = await this.misDatos(!!d.forzar); return { yo: this.quien, ...p }; }
     if (nombre === 'tablero') {
       let equipo = String(d.equipo ?? '');

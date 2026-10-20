@@ -20,14 +20,14 @@ export const CAMPOS_SLACK: Campo[] = [
 
 class Slack extends ConectorBase {
   id = 'slack' as const;
-  intervaloMs = 60_000;
+  override intervaloMs = 60_000;
   private ctx: ContextoSlack = contextoSlackVacio();
   private equipoNombre = '';
   private canalesCuando = 0;
   private ultimo = new Map<string, string>();     // canal → ts del último mensaje visto
   private actividad = new Map<string, number>();  // canal → cuándo se movió por última vez (para elegir los que se sondean)
   constructor(almacen: Almacen) { super(almacen, new ConfigFuente(almacen, 'slack', CAMPOS_SLACK)); }
-  protected alReiniciar() { this.ctx = contextoSlackVacio(); this.canalesCuando = 0; this.ultimo.clear(); this.actividad.clear(); this.equipoNombre = ''; }
+  protected override alReiniciar() { this.ctx = contextoSlackVacio(); this.canalesCuando = 0; this.ultimo.clear(); this.actividad.clear(); this.equipoNombre = ''; }
 
   private async llamar(metodo: string, params: Record<string, string> = {}, token?: string): Promise<any> {
     const t = token ?? await this.config.secreto('token');
@@ -93,7 +93,7 @@ class Slack extends ConectorBase {
       return { ok: true, detalle: `Token válido en ${yo.team}${t.startsWith('xoxb-') ? ` (bot @${yo.user})` : ` (${yo.user})`}: ${n} canales a la vista.${n ? '' : ' Invita a la app a algún canal con /invite.'}` };
     } catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
-  protected async accionPropia(nombre: string, d: Record<string, any>) {
+  protected override async accionPropia(nombre: string, d: Record<string, any>) {
     if (nombre === 'canales') {   // para el selector de la cámara acorazada, una vez conectado
       this.canalesCuando = 0; await this.refrescarCanales();
       const el = this.elegidos();
