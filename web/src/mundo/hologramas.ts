@@ -232,7 +232,7 @@ export class Hologramas {
 
   private async accesorios(p: Personaje, autorId: string) {
     const ids: string[] = (vivo.get().estado?.habitantes as any[] | undefined)?.find(x => x.id === autorId)?.accesorios ?? [];
-    await Promise.all(ids.map(id => { const a = TIENDA.find(x => x.id === id); return a?.ruta && a.hueso ? p.acoplar('acc:' + id, { ruta: a.ruta, hueso: a.hueso, escala: a.escala ?? 1, pos: a.pos, rot: a.rot, rig: a.rig }).catch(() => {}) : null; }));
+    await Promise.all(ids.map(id => { const a = TIENDA.find(x => x.id === id); return a?.ruta && a.hueso ? p.acoplar('acc:' + id, { ruta: a.ruta, hueso: a.hueso, escala: a.escala ?? 1, pos: a.pos, rot: a.rot, rig: a.rig }).catch(() => {}) : Promise.resolve(); }));
   }
 
   // su ordenador: un teclado y una pantalla de los muebles KayKit, en luz como él (en el suelo o flotando en el aire)
