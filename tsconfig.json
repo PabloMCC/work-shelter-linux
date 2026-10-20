@@ -19,7 +19,8 @@
       "DOM.Iterable"
     ],
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ],
     "paths": {
       "@shared/*": [
