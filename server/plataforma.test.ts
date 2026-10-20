@@ -6,7 +6,7 @@ import path from 'node:path';
 import {
   raizDatos, ordenAbrirUrl, ordenesRevelar, uriParaGestor, ordenesEditor, ordenesAdjunto, ordenPapelera,
   ordenTerminal, editorLinux, carpetaSockets, ordenBuscarClaude, ordenesAbrirEn, shellInteractivo, EDITORES_LINUX,
-  lanzar, type Orden,
+  lanzar, capacidades, type Orden,
 } from './plataforma.ts';
 
 const CASA = '/home/alguien';
@@ -224,5 +224,17 @@ describe('lanzar con respaldo', () => {
     lanzar([], vacio);
     expect(vacio.esperar).not.toHaveBeenCalled();
     expect(vacio.soltar).not.toHaveBeenCalled();
+  });
+});
+
+describe('capacidades (lo que solo funciona en macOS)', () => {
+  it('macOS: todo, como siempre', () => {
+    expect(capacidades('darwin', {})).toEqual({ superficie: true, dictado: true, spotify: true });
+  });
+  it('Linux: salir a la superficie, el dictado y Spotify, apagados', () => {
+    expect(capacidades('linux', {})).toEqual({ superficie: false, dictado: false, spotify: false });
+  });
+  it('SHELTER_COMO_LINUX las apaga también en macOS (para probar el aviso en cualquier equipo)', () => {
+    expect(capacidades('darwin', { SHELTER_COMO_LINUX: '1' })).toEqual({ superficie: false, dictado: false, spotify: false });
   });
 });

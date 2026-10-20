@@ -11,6 +11,7 @@ import type { Adjunto } from '@shared/protocolo';
 import { cliente, vivo } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { MAC } from './ventanas';
+import { avisoCapacidad, disponible, useDisponible } from './capacidades';
 
 // ---------------------------------------------------------------- adjuntos
 export interface AdjuntoLocal { id: string; nombre: string; imagen: boolean; ruta?: string; vista?: string; error?: string }
@@ -126,6 +127,8 @@ export function useDictado({ area, texto, setTexto, alEnviar }: { area: React.Re
 
   const empezar = async () => {
     if (r.current) return;
+    // fuera de macOS aún no hay dictado: el aviso, en la tira de debajo, sin pedir el micrófono
+    if (!disponible('dictado')) { setAviso(avisoCapacidad('dictado')); SFX.noPermitido(); return; }
     setAviso('');
     const el = area.current, t = textoRef.current;
     const ini = el?.selectionStart ?? t.length, fin = el?.selectionEnd ?? t.length;
@@ -219,14 +222,15 @@ export const atajoAdjuntar = (e: React.KeyboardEvent) => (MAC ? e.metaKey && !e.
 // 📎 y 🎙, a la derecha de la caja de texto, cada uno con su tecla a la vista (todo se maneja con el teclado); mientras
 // se escucha, la del micrófono es la que termina
 export function BotonesEntrada({ adjuntar, dictado }: { adjuntar: () => void; dictado: ReturnType<typeof useDictado> }) {
-  const titulo = dictado.estado === 'escuchando' ? `Terminar de dictar (Espacio o ${MAC ? '⌘' : 'Ctrl+'}D)` : dictado.estado === 'transcribiendo' ? 'Transcribiendo…' : `Dictar (${MAC ? '⌘' : 'Ctrl+'}D; Espacio termina)`;
+  const hayDictado = useDisponible('dictado');
+  const titulo = !hayDictado ? avisoCapacidad('dictado') : dictado.estado === 'escuchando' ? `Terminar de dictar (Espacio o ${MAC ? '⌘' : 'Ctrl+'}D)` : dictado.estado === 'transcribiendo' ? 'Transcribiendo…' : `Dictar (${MAC ? '⌘' : 'Ctrl+'}D; Espacio termina)`;
   return (
     <span className="botones-entrada">
       <button className="boton-entrada" onMouseDown={e => e.preventDefault()} onClick={adjuntar} title={`Adjuntar archivos o imágenes (${MAC ? '⌘' : 'Ctrl+'}U · también pegar o arrastrar)`} aria-label="Adjuntar">
         <svg viewBox="0 0 24 24" aria-hidden><path d="M20 11.5l-8.2 8.2a5 5 0 01-7.1-7.1l8.6-8.6a3.4 3.4 0 014.8 4.8l-8.6 8.6a1.7 1.7 0 01-2.4-2.4l7.9-7.9" /></svg>
         <kbd>{MAC ? '⌘U' : 'Ctrl+U'}</kbd>
       </button>
-      <button className={'boton-entrada microfono ' + dictado.estado} onMouseDown={e => e.preventDefault()} onClick={dictado.alternar} title={titulo} aria-label="Dictar" disabled={dictado.estado === 'transcribiendo'}>
+      <button className={'boton-entrada microfono ' + dictado.estado} onMouseDown={e => e.preventDefault()} onClick={dictado.alternar} title={titulo} aria-label="Dictar" aria-disabled={!hayDictado || undefined} style={hayDictado ? undefined : { opacity: .45 }} disabled={dictado.estado === 'transcribiendo'}>
         <svg viewBox="0 0 24 24" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21M8.5 21h7" /></svg>
         <kbd>{dictado.estado === 'escuchando' ? 'Espacio' : MAC ? '⌘D' : 'Ctrl+D'}</kbd>
       </button>

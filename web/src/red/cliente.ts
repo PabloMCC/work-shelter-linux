@@ -1,5 +1,5 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
-import type { MensajeCliente, MensajeServidor, ResumenSesion, EntradaCuaderno, InfoRepo, Visitante, EstadoMusica } from '@shared/protocolo';
+import { capacidadesDe, type Capacidades, type MensajeCliente, type MensajeServidor, type ResumenSesion, type EntradaCuaderno, type InfoRepo, type Visitante, type EstadoMusica } from '@shared/protocolo';
 import { Almacen } from '../ui/almacen';
 
 export interface DatosVivos {
@@ -7,6 +7,7 @@ export interface DatosVivos {
   intentos: number;
   reiniciando: boolean;                     // el servidor se está reiniciando: al volver, se recarga la página
   claudeOk: boolean;
+  capacidades: Capacidades;                 // lo que solo funciona en macOS (fuera, apagado con aviso: ui/capacidades.ts)
   versionClaude?: string;
   estado: any | null;                       // EstadoRefugio del servidor
   sesiones: Record<string, ResumenSesion>;
@@ -21,7 +22,7 @@ export interface DatosVivos {
   musica: EstadoMusica | null;              // lo que suena en la discoteca (Spotify web; lo pone Discoteca.tsx)
 }
 
-export const vivo = new Almacen<DatosVivos>({ conectado: false, intentos: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null });
+export const vivo = new Almacen<DatosVivos>({ conectado: false, intentos: 0, reiniciando: false, claudeOk: false, capacidades: capacidadesDe(undefined), estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null });
 
 // El secreto del arranque llega en el fragmento de la URL (#t=…, no viaja al servidor ni queda en el historial de
 // peticiones); se guarda en la sesión de la pestaña para sobrevivir a recargas y se quita de la barra de direcciones.
@@ -84,7 +85,7 @@ class Cliente {
     switch (m.t) {
       case 'bienvenida': {
         const sesiones: Record<string, ResumenSesion> = {}; for (const s of m.sesiones) sesiones[s.id] = s;
-        vivo.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, estado: m.estado, sesiones, repos: m.repos });
+        vivo.set({ claudeOk: m.claudeOk, capacidades: capacidadesDe(m.capacidades), versionClaude: m.versionClaude, estado: m.estado, sesiones, repos: m.repos });
         // tras un corte, los cuadernos abiertos se vuelven a pedir enteros (lo que llegó durante el corte no se pierde)
         for (const id of Object.keys(vivo.get().entradas)) if (sesiones[id]) this.pedir<any[]>({ t: 'cuaderno', sesionId: id }).then(lista => vivo.set(e => ({ entradas: { ...e.entradas, [id]: lista } }))).catch(() => {});
         break;

@@ -17,7 +17,7 @@ import { abrirNavegador, alFrente, minimizar, navegadores, evaluarEn, EN_ELECTRO
 import { Almacen } from './almacen';
 import { juego } from './estadoJuego';
 import { escribiendo } from '../motor/teclado';
-import { MAC, CMD } from './ventanas';
+import { esAtajo, etiquetaAtajo } from './teclas';
 import { seleccion as seleccionBarra } from './Barra';
 
 /** Spotify en su navegador (si ya estaba abierto, al frente) */
@@ -177,7 +177,7 @@ const PASO_SEGUNDOS = 10, PASO_VOLUMEN = 10;
 // con el foco en un navegador (<webview>), las teclas no llegan a la página: Electron manda ⌘J aquí
 (window as any).__atajoMusica = () => { if (mandoMusica.get().activo) salirMando(); else atajoMusica(); };
 if (EN_ELECTRON) addEventListener('keydown', e => {
-  const cmdJ = (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && e.shiftKey) && !e.altKey && e.code === 'KeyJ';
+  const cmdJ = esAtajo(e, 'KeyJ');
   if (!mandoMusica.get().activo) {
     const j = juego.get();
     const jSuelta = e.code === 'KeyJ' && !e.metaKey && !e.ctrlKey && !e.altKey && !j.hablandoCon && !j.panel && !escribiendo(e);
@@ -185,7 +185,7 @@ if (EN_ELECTRON) addEventListener('keydown', e => {
     return;
   }
   // ⌘B: a la barra (esta se suelta)
-  if ((MAC ? e.metaKey : e.ctrlKey) && e.code === 'KeyB') { salirMando(false); return; }
+  if (esAtajo(e, 'KeyB')) { salirMando(false); return; }
   // con la pletina en mano, todas las teclas son suyas
   e.preventDefault(); e.stopPropagation();
   if (e.repeat && !/^Arrow/.test(e.code)) return;
@@ -234,7 +234,7 @@ export function Pletina() {
       onMouseLeave={() => { plazo.current = setTimeout(() => setEncima(false), 350); }}>
       {enMano && <div className="barra-ayuda pletina-ayuda"><kbd>Espacio</kbd> ⏯ <kbd>←→</kbd> ±{PASO_SEGUNDOS} s <kbd>⇧←→</kbd> temas <kbd>↑↓</kbd> volumen <kbd>Intro</kbd> Spotify <kbd>Esc</kbd> salir</div>}
       <div className="pletina-fila">
-        <button className="pletina-disco" onClick={() => alFrente('spotify')} title={`Abrir Spotify (${CMD}J para manejar la música con el teclado)`}><Disco m={m} tam="100%" /></button>
+        <button className="pletina-disco" onClick={() => alFrente('spotify')} title={`Abrir Spotify (${etiquetaAtajo('KeyJ')} para manejar la música con el teclado)`}><Disco m={m} tam="100%" /></button>
         <div className="pletina-cuerpo">
           {abierta && <div className="pletina-cabeza">
             <span className="pletina-marca">{marca}</span>
@@ -248,12 +248,12 @@ export function Pletina() {
             {abierta && <><Progreso m={m!} pos={pos} /><div className="pletina-pie"><Mandos m={m!} /><Volumen m={m!} /></div></>}
           </> : <>
             <div className="pletina-titulo"><span>Nada sonando</span></div>
-            <div className="pletina-artista">{abierta ? 'Abre Spotify y elige qué poner' : `Spotify · ${CMD}J`}</div>
+            <div className="pletina-artista">{abierta ? 'Abre Spotify y elige qué poner' : `Spotify · ${etiquetaAtajo('KeyJ')}`}</div>
           </>}
         </div>
       </div>
       {!abierta && d > 0 && <span className="pletina-raya" style={{ width: `${Math.min(100, (pos / d) * 100)}%` }} />}
-      {!enMano && <button className="tecla pista-atajo" onClick={() => atajoMusica()} title={`Manejar la música con el teclado (${CMD}J)`}>{CMD}J</button>}
+      {!enMano && <button className="tecla pista-atajo" onClick={() => atajoMusica()} title={`Manejar la música con el teclado (${etiquetaAtajo('KeyJ')})`}>{etiquetaAtajo('KeyJ')}</button>}
     </div>
   );
 }

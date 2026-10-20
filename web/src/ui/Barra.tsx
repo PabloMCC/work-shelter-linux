@@ -10,7 +10,7 @@ import { vivo } from '../red/cliente';
 import { Almacen } from './almacen';
 import { escribiendo } from '../motor/teclado';
 import { SFX } from '../audio/sonido';
-import { MAC, CMD } from './ventanas';
+import { esAtajo, etiquetaAtajo } from './teclas';
 import { interlocutor } from './copias';
 import { navegadores, SITIOS, tituloPagina, alFrente as navAlFrente, minimizar as navMinimizar, cerrar as navCerrar } from './Navegadores';
 import { ventanaGit, alFrenteGit, minimizarGit, cerrarGit } from './git/ventana';
@@ -61,7 +61,7 @@ function salir(volverAlFoco = true) {
   antes = null;
 }
 addEventListener('keydown', e => {
-  const cmdB = (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && e.shiftKey) && !e.altKey && e.code === 'KeyB';
+  const cmdB = esAtajo(e, 'KeyB');
   const sel = seleccion.get().actual;
   if (!sel) {
     const j = juego.get();
@@ -182,7 +182,7 @@ export function Barra() {
           </button>
         </div>
       )}
-      {!sel && <button className="tecla pista-atajo" onClick={() => entrar()} title={`Manejar la barra con el teclado (${CMD}B)`}>{CMD}B</button>}
+      {!sel && <button className="tecla pista-atajo" onClick={() => entrar()} title={`Manejar la barra con el teclado (${etiquetaAtajo('KeyB')})`}>{etiquetaAtajo('KeyB')}</button>}
     </div>
   );
 }

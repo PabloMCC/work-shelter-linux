@@ -7,6 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 RAIZ="$(pwd)"
+source scripts/plataforma.sh
 NODO_VERSION="22.20.0"
 amarillo() { printf '\033[33m%s\033[0m\n' "$*"; }
 verde() { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -16,20 +17,21 @@ rojo() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 # ./shelter instalar-app [--sin-dock] […]: prepara lo mismo que el arranque y crea la app de macOS, sin abrir el juego
 INSTALAR_APP=""
 case "${1:-}" in superficie|enganchar) SUBORDEN=1 ;; instalar-app) SUBORDEN=""; INSTALAR_APP=1; shift; echo "== work-shelter ==" ;; *) SUBORDEN=""; echo "== work-shelter ==" ;; esac
+# la app de instalar-app es solo de macOS: fuera de él se avisa antes de preparar nada
+if [ -n "$INSTALAR_APP" ]; then instalar_app_disponible || exit 1; fi
 
 # 1. Node 22+ (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
 if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
   NODE="$(command -v node)"; NPM="$(command -v npm)"
 else
-  ARQ="$(uname -m)"; [ "$ARQ" = "x86_64" ] && ARQ="x64"
-  DIR=".runtime/node-v$NODO_VERSION-darwin-$ARQ"
+  SO="$(so_node)"; ARQ="$(arq_node)"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
+  DIR=".runtime/node-v$NODO_VERSION-$SO-$ARQ"
   if [ ! -x "$DIR/bin/node" ]; then
     amarillo "No encuentro Node 22 o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
     mkdir -p .runtime
-    curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/node-v$NODO_VERSION-darwin-$ARQ.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
-    # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt): no se ejecuta nada que no cuadre
-    case "$ARQ" in arm64) SUMA="cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949" ;; *) SUMA="00df9c5df3e4ec6848c26b70fb47bf96492f342f4bed6b17f12d99b3a45eeecc" ;; esac
-    echo "$SUMA  .runtime/node.tar.gz" | shasum -a 256 -c - >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 22 desde https://nodejs.org"; exit 1; }
+    curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/node-v$NODO_VERSION-$SO-$ARQ.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
+    # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
+    echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 22 desde https://nodejs.org"; exit 1; }
     tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
   fi
   export PATH="$RAIZ/$DIR/bin:$PATH"; NODE="$RAIZ/$DIR/bin/node"; NPM="$RAIZ/$DIR/bin/npm"
@@ -49,17 +51,20 @@ fi
 
 # 3. Dependencias (la primera vez, o si cambia package-lock.json)
 SELLO="node_modules/.sello-shelter"
-HUELLA="$(shasum package-lock.json | cut -d' ' -f1)"
+HUELLA="$(huella_de package-lock.json)"
 if [ ! -f "$SELLO" ] || [ "$(cat "$SELLO")" != "$HUELLA" ]; then
   amarillo "Instalando dependencias (la primera vez tarda un par de minutos)…"
   "$NPM" ci --no-audit --no-fund --loglevel=error || { rojo "Falló la instalación de dependencias (npm ci)."; exit 1; }
   echo "$HUELLA" > "$SELLO"
 fi
 
-# 3b. Binario de Electron (la ventana del juego): este paquete lo descarga aparte
-if [ ! -x node_modules/electron/dist/Electron.app/Contents/MacOS/Electron ]; then
+# 3b. Binario de Electron (la ventana del juego): este paquete lo descarga aparte. Su ruta la da el propio paquete
+# (Electron.app/Contents/MacOS/Electron en macOS, dist/electron en Linux); vacía si aún no está descargado
+ELECTRON="$(electron_binario "$NODE")"
+if [ -z "$ELECTRON" ] || [ ! -x "$ELECTRON" ]; then
   amarillo "Descargando la ventana del juego (Electron, solo la primera vez)…"
   "$NODE" node_modules/electron/install.js || amarillo "No se pudo descargar Electron: work-shelter se abrirá en el navegador."
+  ELECTRON="$(electron_binario "$NODE")"
 fi
 
 # 4. Material artístico CC0 (fijado por commit)
@@ -121,10 +126,18 @@ if [ -n "${SHELTER_SIN_VENTANA:-}" ]; then
   # pruebas y uso sin ventana: el servidor queda en marcha hasta Ctrl+C
   echo "Abre: $URL"
   [ -n "$SERVIDOR_PID" ] && wait $SERVIDOR_PID
-elif [ -x node_modules/electron/dist/Electron.app/Contents/MacOS/Electron ]; then
-  SHELTER_URL="$URL" SHELTER_CDP="${SHELTER_CDP:-}" SHELTER_DEV="${SHELTER_DEV:-}" node_modules/electron/dist/Electron.app/Contents/MacOS/Electron electron/main.cjs >/dev/null 2>&1 || true
+elif [ -n "$ELECTRON" ] && [ -x "$ELECTRON" ]; then
+  # su salida, al registro (solo legible por ti, el de la última vez); si cae nada más abrir, el navegador. Si no se
+  # puede crear la carpeta del registro, sin registro (vacío): su salida se queda en esta terminal
+  LOG="$(carpeta_registros)/electron.log"
+  ( umask 077; mkdir -p "${LOG%/*}" && : > "$LOG" ) 2>/dev/null || LOG=
+  if ! SHELTER_URL="$URL" SHELTER_CDP="${SHELTER_CDP:-}" SHELTER_DEV="${SHELTER_DEV:-}" ventana_electron "$ELECTRON" "$LOG" electron/main.cjs; then
+    amarillo "Abro work-shelter en el navegador."
+    abrir_url "$URL"
+    [ -n "$SERVIDOR_PID" ] && wait $SERVIDOR_PID
+  fi
 else
   amarillo "No encuentro Electron; abro work-shelter en el navegador."
-  open "$URL"
+  abrir_url "$URL"
   [ -n "$SERVIDOR_PID" ] && wait $SERVIDOR_PID
 fi

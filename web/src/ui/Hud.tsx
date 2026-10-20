@@ -6,7 +6,7 @@ import { juego } from './estadoJuego';
 import { vivo } from '../red/cliente';
 import { abrirBuscador } from './Buscador';
 import { minimizarIntercom } from './Dialogo';
-import { MAC } from './ventanas';
+import { etiquetaAtajo } from './teclas';
 
 const fmtHora = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
 const fmtFecha = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -79,7 +79,7 @@ export function Hud() {
       {/* las dos puertas de todo lo demás, con su tecla a la vista: el buscador (⌘K) y el menú del juego (Esc) */}
       <div className="seg puertas">
         <button className="boton-puerta" onClick={() => abrirBuscador()} title="Buscar conversaciones, acciones, habitantes y salas (desde cualquier sitio)">
-          <span className="tecla">{MAC ? '⌘K' : 'Ctrl+K'}</span>buscar
+          <span className="tecla">{etiquetaAtajo('KeyK')}</span>buscar
         </button>
         <button className="boton-puerta" onClick={() => { if (juego.get().hablandoCon) minimizarIntercom(); juego.set({ panel: 'menu', panelDatos: null }); }} title="Menú del juego: opciones, atajos, reiniciar, salir a la superficie y salir">
           <span className="tecla">Esc</span>menú

@@ -5,6 +5,10 @@ los habitantes y terminales) sigue en una terminal normal de tu escritorio. Usa 
 Terminal (`SHELTER_TERMINAL=terminal` o `iterm` para elegir). En el juego, todo esto está también en el Manual del
 Supervisor (F1), sección «A la superficie».
 
+**De momento, solo en macOS.** En Linux, el botón ↗ y el atajo se ven apagados y, al pulsarlos, avisan de que aún no
+está; `./shelter superficie` avisa y sale sin sacar nada, y si el juego se cae no sale nada solo. La tecla de pánico
+(Mayús+Alt+Ctrl+Esc) solo esconde la ventana del juego.
+
 ## Las cuatro maneras
 
 | Cómo | Qué saca |

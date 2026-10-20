@@ -2,12 +2,13 @@
 // qué se abre una dirección, un archivo o una carpeta, la papelera, la terminal, el shell y los sockets. Cada cosa es
 // una función pura que devuelve la orden (`{ bin, args }`) con la plataforma como parámetro, para que el contrato se
 // pruebe igual en los dos sistemas, más unos lanzadores finos que la ejecutan. En macOS todo es lo de siempre.
-// Módulo hoja: no importa nada del servidor (ejemplos.ts no puede importar estado.ts y los dos lo usan).
+// Módulo hoja: no importa nada del servidor, y de shared solo tipos (ejemplos.ts no puede importar estado.ts y los dos lo usan).
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { accessSync, constants, existsSync, realpathSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { Capacidades } from '../shared/protocolo.ts';
 
 /** Una orden por lanzar: el programa, sus argumentos y, si hace falta, la carpeta desde la que se lanza */
 export interface Orden { bin: string; args: string[]; cwd?: string }
@@ -31,6 +32,14 @@ export function enPath(nombre: string, ruta = process.env.PATH ?? ''): string | 
   return null;
 }
 const buscarEnPath: Buscador = n => enPath(n);
+
+// ---------------------------------------------------------------- lo que solo funciona en macOS
+/** Salir a la superficie (AppleScript con iTerm o Terminal), el dictado (el de macOS) y Spotify (su Chrome): de momento,
+ *  solo en macOS. SHELTER_COMO_LINUX las apaga en cualquier sistema, para probar los avisos también en un Mac */
+export function capacidades(p: Plataforma = process.platform, env: Entorno = process.env): Capacidades {
+  const si = esMac(p) && !env.SHELTER_COMO_LINUX;
+  return { superficie: si, dictado: si, spotify: si };
+}
 
 // ---------------------------------------------------------------- datos de la app
 /** Carpeta de datos de la app fuera del repo: Application Support en macOS; `$XDG_DATA_HOME` (o ~/.local/share) en Linux */
