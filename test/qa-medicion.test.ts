@@ -21,6 +21,8 @@ type Medicion = {
   huellaBuild(dir: string): { indexHtml: string | null; entrada: string | null; entradaSha256: string | null };
   crearRegistro(d: { guion: string; fecha: Date; commit: { hash: string | null; sucio: boolean }; build: object; opciones: object; resultado: object }): Record<string, unknown>;
   anadirJson(ruta: string, registro: object): void;
+  nuevos(antes: number | null, despues: number | null): number | null;
+  cifra(x: number | null | undefined, sufijo?: string): string;
 };
 
 // ruta calculada: el módulo es JavaScript sin tipos y TypeScript no lo resuelve; los tipos van arriba
@@ -87,6 +89,31 @@ describe('opciones de la línea de órdenes', () => {
     expect(m.leerOpciones([])).toEqual({ w: 1440, h: 900, angle: undefined, chromium: [], veces: 1, esperaMs: 0, json: undefined, segundos: 10 });
     const o = m.leerOpciones(['1920x1080', '--angle=vulkan', '--veces=3', '--espera=500', '--json=/tmp/x.jsonl', '--segundos=5']);
     expect(o).toEqual({ w: 1920, h: 1080, angle: 'vulkan', chromium: ['--use-angle=vulkan', '--enable-features=Vulkan'], veces: 3, esperaMs: 500, json: '/tmp/x.jsonl', segundos: 5 });
+    expect(m.leerOpciones(['--segundos=2.5', '--espera=0']).segundos).toBe(2.5);
+  });
+  // una opción mal escrita para la medición antes de arrancar nada: nunca llega al registro JSON
+  it.each([
+    ['--veces=abc', /--veces=abc/], ['--veces=0', /--veces=0/], ['--veces=-1', /--veces=-1/], ['--veces=1.5', /--veces=1\.5/], ['--veces=', /--veces=/],
+    ['--segundos=abc', /--segundos=abc/], ['--segundos=0', /--segundos=0/], ['--segundos=-3', /--segundos=-3/], ['--segundos=Infinity', /--segundos=Infinity/],
+    ['--espera=abc', /--espera=abc/], ['--espera=-10', /--espera=-10/], ['--espera=1e999', /--espera=1e999/],
+  ])('rechaza %s con un error que lo nombra', (opcion, error) => {
+    expect(() => m.leerOpciones([opcion])).toThrow(error);
+  });
+});
+
+describe('contadores que pueden faltar', () => {
+  it('los programas nuevos son la diferencia, o null si falta un lado (no un 0 inventado)', () => {
+    expect(m.nuevos(41, 43)).toBe(2);
+    expect(m.nuevos(41, 41)).toBe(0);
+    expect(m.nuevos(null, 41)).toBeNull();
+    expect(m.nuevos(41, null)).toBeNull();
+    expect(m.nuevos(null, null)).toBeNull();
+  });
+  it('en el texto, lo que falta se dice «no medible»', () => {
+    expect(m.cifra(2.5, ' ms')).toBe('2.5 ms');
+    expect(m.cifra(0)).toBe('0');
+    expect(m.cifra(null, ' ms')).toBe('no medible');
+    expect(m.cifra(undefined)).toBe('no medible');
   });
 });
 

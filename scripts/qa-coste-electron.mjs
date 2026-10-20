@@ -18,9 +18,10 @@ import { _electron } from 'playwright';
 import electron from 'electron';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { servidor, leerOpciones, resumen, filtrarGpu, agregarDesglose, huellaBuild, commitActual, crearRegistro, anadirJson } from './qa-medicion.mjs';
+import { servidor, leerOpciones, resumen, filtrarGpu, agregarDesglose, huellaBuild, commitActual, crearRegistro, anadirJson, nuevos, cifra } from './qa-medicion.mjs';
 
-const opciones = leerOpciones(process.argv.slice(2));
+let opciones;
+try { opciones = leerOpciones(process.argv.slice(2)); } catch (e) { console.error(e.message); process.exit(2); }
 const { w, h, angle, chromium, veces, esperaMs } = opciones;   // esperaMs: tras __ready, antes de medir
 
 async function medir() {
@@ -46,6 +47,8 @@ async function medir() {
       const paso = () => { window.__step(1 / 60); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); };
       for (let i = 0; i < 20; i++) paso();
       const programasTrasCalentar = programas();
+      // el contador de fotogramas decide qué pasos llevan sombra y dónde se hace el desglose: sin él, nada de esto vale
+      if (!Number.isInteger(m.cuadro)) throw new Error(`El motor no expone un contador de fotogramas entero (cuadro = ${m.cuadro}): no se puede medir.`);
       ren.info.autoReset = false;
       // tiempo de GPU: una consulta por paso. El resultado no llega hasta volver al bucle de eventos (lo dice WebGL 2),
       // así que los pasos van seguidos, como siempre, y se recogen después. Ojo: es el tiempo que pasa en la GPU entre
@@ -85,8 +88,12 @@ async function medir() {
       }
 
       // desglose: se avanza hasta que el paso siguiente rehaga el mapa de sombras y se intercepta ese fotograma
+      // con tope: si el contador no avanza de uno en uno, falla en vez de quedarse dando vueltas dentro de la página
       const k = m.sombrasCongeladas ? 6 : 3;
-      while ((m.cuadro + 1) % k !== 0) paso();
+      for (let i = 0; (m.cuadro + 1) % k !== 0; i++) {
+        if (i >= 2 * k) throw new Error(`No se llega a un fotograma con mapa de sombras en ${2 * k} pasos (cuadro = ${m.cuadro}, uno de cada ${k}).`);
+        paso();
+      }
       const escena = m.scene, lista = [], nombres = new Map();
       // cada objeto se cuenta en su antepasado que cuelga directamente de la escena; los grupos sin nombre, con su
       // tipo, su posición en la escena y el primer nombre que haya dentro, para poder encontrarlos
@@ -151,7 +158,8 @@ async function medir() {
     // en pantalla, los 15 primeros grupos y el resto; en el JSON, todos
     const desglose = { ...agregarDesglose(r.desgloseLlamadas), llamadasInfo: r.desgloseLlamadasInfo };
     const desgloseCompleto = { ...agregarDesglose(r.desgloseLlamadas, Infinity), llamadasInfo: r.desgloseLlamadasInfo };
-    const programas = { trasReady: r.programasTrasReady, trasCalentar: r.programasTrasCalentar, trasMedir: r.programas, trasDesglose: r.programasTrasDesglose };
+    // sin renderer.info.programs los recuentos son null y los nuevos también: no medible, no 0
+    const programas = { trasReady: r.programasTrasReady, trasCalentar: r.programasTrasCalentar, trasMedir: r.programas, trasDesglose: r.programasTrasDesglose, nuevosDuranteMedicion: nuevos(r.programasTrasCalentar, r.programas) };
     return { linea, tiempoGpu, programas, luces: { inicio: r.lucesInicio, fin: r.lucesFin }, desglose, desgloseCompleto };
   } finally {
     // también si Electron no ha llegado a arrancar: que no quede el servidor vivo ocupando el puerto
@@ -171,9 +179,9 @@ for (let i = 0; i < veces; i++) {
   const { linea, tiempoGpu, programas, luces, desglose, desgloseCompleto } = await medir();
   console.log(JSON.stringify(linea));
   console.log(tiempoGpu
-    ? `tiempo de GPU: mediana ${tiempoGpu.medianaMs} ms, p95 ${tiempoGpu.p95Ms} ms (n=${tiempoGpu.n}; con sombra ${tiempoGpu.conSombra.medianaMs}/${tiempoGpu.conSombra.p95Ms}, sin sombra ${tiempoGpu.sinSombra.medianaMs}/${tiempoGpu.sinSombra.p95Ms}; descartadas: ${tiempoGpu.disjuntas} disjuntas, ${tiempoGpu.sinResultado} sin resultado)`
+    ? `tiempo de GPU: mediana ${cifra(tiempoGpu.medianaMs, ' ms')}, p95 ${cifra(tiempoGpu.p95Ms, ' ms')} (n=${tiempoGpu.n}; con sombra ${cifra(tiempoGpu.conSombra.medianaMs)}/${cifra(tiempoGpu.conSombra.p95Ms)}, sin sombra ${cifra(tiempoGpu.sinSombra.medianaMs)}/${cifra(tiempoGpu.sinSombra.p95Ms)}; descartadas: ${tiempoGpu.disjuntas} disjuntas, ${tiempoGpu.sinResultado} sin resultado)`
     : 'tiempo de GPU: no medible (esta GPU o este ANGLE no dan EXT_disjoint_timer_query_webgl2)');
-  console.log(`programas: ${programas.trasReady} tras __ready, ${programas.trasCalentar} tras calentar, ${programas.trasMedir} tras medir, ${programas.trasDesglose} tras el desglose (nuevos durante la medición: ${programas.trasMedir - programas.trasCalentar})`);
+  console.log(`programas: ${cifra(programas.trasReady)} tras __ready, ${cifra(programas.trasCalentar)} tras calentar, ${cifra(programas.trasMedir)} tras medir, ${cifra(programas.trasDesglose)} tras el desglose (nuevos durante la medición: ${cifra(programas.nuevosDuranteMedicion)})`);
   console.log(`luces visibles: al empezar ${textoLuces(luces.inicio)}; al acabar ${textoLuces(luces.fin)}`);
   console.log(`desglose de un fotograma con mapa de sombras: ${desglose.total.llamadas} llamadas, ${desglose.total.triangulos} triángulos (renderer.info: ${desglose.llamadasInfo} llamadas)`);
   console.log(`  por pase:\n${tabla(desglose.porPase, '    ')}`);

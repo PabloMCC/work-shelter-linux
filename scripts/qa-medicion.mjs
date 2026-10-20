@@ -23,13 +23,39 @@ export async function servidor() {
 }
 
 // [ancho x alto] [--angle=gl|vulkan|metal] [--veces=N] [--espera=ms] [--json=archivo] [--segundos=N]
+// Una opción numérica mal escrita falla aquí, antes de arrancar nada: una medición con opciones raras no llega a correr
+// ni, por tanto, al registro JSON
 export function leerOpciones(argv) {
   const valor = nombre => argv.find(o => o.startsWith(`--${nombre}=`))?.slice(nombre.length + 3);
+  // solo cifras (y decimales con punto): ni signo, ni exponentes, ni Infinity
+  const numero = (nombre, porDefecto, { entero = false, cero = true }, explicacion) => {
+    const v = valor(nombre);
+    if (v === undefined) return porDefecto;
+    const n = /^\d+(\.\d+)?$/.test(v) ? Number(v) : NaN;
+    if (!Number.isFinite(n) || (entero && !Number.isInteger(n)) || (!cero && n === 0)) throw new Error(`--${nombre}=${v} no vale: ${explicacion}.`);
+    return n;
+  };
   const [w, h] = (argv.find(o => /^\d+x\d+$/.test(o)) || '1440x900').split('x').map(Number);
   const angle = valor('angle');
   // las opciones de Chromium van delante del guion de la app; Vulkan, además, hay que activarlo
   const chromium = angle ? [`--use-angle=${angle}`, ...(angle === 'vulkan' ? ['--enable-features=Vulkan'] : [])] : [];
-  return { w, h, angle, chromium, veces: +(valor('veces') || 1), esperaMs: +(valor('espera') || 0), json: valor('json') || undefined, segundos: +(valor('segundos') || 10) };
+  return {
+    w, h, angle, chromium,
+    veces: numero('veces', 1, { entero: true, cero: false }, 'tiene que ser un número entero de mediciones, 1 o más'),
+    esperaMs: numero('espera', 0, {}, 'tiene que ser un número de milisegundos, 0 o más'),
+    json: valor('json') || undefined,
+    segundos: numero('segundos', 10, { cero: false }, 'tiene que ser un número de segundos mayor que 0'),
+  };
+}
+
+// programas nuevos entre dos recuentos; si falta uno (renderer.info.programs no existe), no se sabe: null, no 0
+export function nuevos(antes, despues) {
+  return antes === null || antes === undefined || despues === null || despues === undefined ? null : despues - antes;
+}
+
+// para el texto: lo que no se ha podido medir se dice, en vez de escribir «null» o un 0
+export function cifra(x, sufijo = '') {
+  return x === null || x === undefined ? 'no medible' : `${x}${sufijo}`;
 }
 
 // mismo índice que ha usado siempre qa-coste-electron (mediana = o[n/2], p95 = o[0,95·n]): los números nuevos se

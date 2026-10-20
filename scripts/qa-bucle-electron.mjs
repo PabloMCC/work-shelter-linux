@@ -16,9 +16,10 @@ import { _electron } from 'playwright';
 import electron from 'electron';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { servidor, leerOpciones, resumen, intervalos, huellaBuild, commitActual, crearRegistro, anadirJson } from './qa-medicion.mjs';
+import { servidor, leerOpciones, resumen, intervalos, huellaBuild, commitActual, crearRegistro, anadirJson, nuevos, cifra } from './qa-medicion.mjs';
 
-const opciones = leerOpciones(process.argv.slice(2));
+let opciones;
+try { opciones = leerOpciones(process.argv.slice(2)); } catch (e) { console.error(e.message); process.exit(2); }
 const { w, h, angle, chromium, veces, esperaMs, segundos } = opciones;   // esperaMs: tras __ready, antes de calentar
 const CALENTAR_MS = 3000;
 
@@ -81,7 +82,7 @@ async function medir() {
       ventana: `${w}x${h}`, pixeles: r.pixeles, dpr: r.dpr, gpu: r.gpu, angle: angle ?? 'por defecto', segundos: +(r.duracionMs / 1000).toFixed(2), arranque,
       pantalla: { ...pantalla, hz: pantalla.medianaMs ? +(1000 / pantalla.medianaMs).toFixed(1) : null },
       pintadosPorSegundo: +(r.pasos.length / (r.duracionMs / 1000)).toFixed(1), pintados: r.pasos.length, intervaloPintados: pintados,
-      cpuPaso: resumen(r.cpu), programas: { inicio: r.programasInicio, fin: r.programasFin },
+      cpuPaso: resumen(r.cpu), programas: { inicio: r.programasInicio, fin: r.programasFin, nuevos: nuevos(r.programasInicio, r.programasFin) },
       // un cambio de primer plano durante la medición la invalida: el bucle se ha parado (o se ha vuelto a poner) a mitad
       cambiosPrimerPlano: r.cambios.map(c => ({ ms: +(c.t - r.t0).toFixed(0), activo: c.activo })),
     };
@@ -100,11 +101,11 @@ for (let i = 0; i < veces; i++) {
   const r = await medir();
   console.log(`bucle real ${r.ventana} (${r.pixeles}, dpr ${r.dpr}), angle ${r.angle}, gpu ${r.gpu}`);
   console.log(`  ${r.segundos} s tras ${CALENTAR_MS / 1000} s de calentar; el bucle corre por: ${r.arranque}`);
-  console.log(`  pantalla: rAF cada ${r.pantalla.medianaMs} ms de mediana (${r.pantalla.hz} Hz; n=${r.pantalla.n})`);
+  console.log(`  pantalla: rAF cada ${cifra(r.pantalla.medianaMs, ' ms')} de mediana (${cifra(r.pantalla.hz, ' Hz')}; n=${r.pantalla.n})`);
   console.log(`  motor: ${r.pintadosPorSegundo} fotogramas pintados por segundo (${r.pintados})`);
-  console.log(`  intervalo entre pintados: mediana ${r.intervaloPintados.medianaMs} ms, p95 ${r.intervaloPintados.p95Ms} ms, máximo ${r.intervaloPintados.maxMs} ms`);
-  console.log(`  CPU dentro de paso(): mediana ${r.cpuPaso.medianaMs} ms, p95 ${r.cpuPaso.p95Ms} ms (sin esperar a la GPU)`);
-  console.log(`  programas: ${r.programas.inicio} al empezar, ${r.programas.fin} al acabar`);
+  console.log(`  intervalo entre pintados: mediana ${cifra(r.intervaloPintados.medianaMs, ' ms')}, p95 ${cifra(r.intervaloPintados.p95Ms, ' ms')}, máximo ${cifra(r.intervaloPintados.maxMs, ' ms')}`);
+  console.log(`  CPU dentro de paso(): mediana ${cifra(r.cpuPaso.medianaMs, ' ms')}, p95 ${cifra(r.cpuPaso.p95Ms, ' ms')} (sin esperar a la GPU)`);
+  console.log(`  programas: ${cifra(r.programas.inicio)} al empezar, ${cifra(r.programas.fin)} al acabar (nuevos: ${cifra(r.programas.nuevos)})`);
   console.log(r.cambiosPrimerPlano.length
     ? `  AVISO: el primer plano ha cambiado durante la medición (${r.cambiosPrimerPlano.map(c => `${c.activo ? 'activo' : 'parado'} a los ${c.ms} ms`).join(', ')}): no vale`
     : '  primer plano: sin cambios durante la medición');
