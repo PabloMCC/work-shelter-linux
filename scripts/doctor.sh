@@ -98,18 +98,20 @@ version_node_shelter() {
   return 1
 }
 
-# Node 24 o superior, o poder descargar el portátil (sistema y arquitectura con suma conocida, y algo para comprobarla)
+# El Node mínimo de ./shelter (el de su NODO_VERSION) o superior, o poder descargar el portátil (sistema y arquitectura
+# con suma conocida, y algo para comprobarla). Sin NODO_VERSION que leer no da por bueno ningún Node del sistema
 comprobar_node() {
-  local v="" ver so arq
+  local v="" ver="" min="" nodo so arq
   hay node && v="$(node -p 'process.versions.node' 2>/dev/null)"
-  if [ -n "$v" ] && [ "${v%%.*}" -ge 24 ] 2>/dev/null; then bien "Node $v: ejecuta el juego"; return 0; fi
-  ver="$(version_node_shelter 2>/dev/null)"
-  if so="$(so_node 2>/dev/null)" && arq="$(arq_node 2>/dev/null)" && suma_node "$ver" "$so" "$arq" >/dev/null 2>&1 \
+  ver="$(version_node_shelter 2>/dev/null)" && min="$(nodo_minimo "$ver")" || min=""
+  nodo="Node${min:+ $min}"
+  if [ -n "$v" ] && [ "${v%%.*}" -ge "$min" ] 2>/dev/null; then bien "Node $v: ejecuta el juego"; return 0; fi
+  if so="$(so_node 2>/dev/null)" && arq="$(arq_node "$ver" 2>/dev/null)" && suma_node "$ver" "$so" "$arq" >/dev/null 2>&1 \
     && { hay sha256sum || hay shasum; }; then
-    bien "Node 24: ${v:+tienes el $v, que no llega; }./shelter descargará el oficial ($ver) solo para el juego, con su suma comprobada"
+    bien "$nodo: ${v:+tienes el $v, que no llega; }./shelter descargará el oficial ($ver) solo para el juego, con su suma comprobada"
   else
-    mal "Node 24 o superior: ${v:+tienes el $v y }no hay un Node portátil que descargar para este sistema"
-    detalle "Instala Node 24 o superior desde https://nodejs.org"
+    mal "$nodo o superior: ${v:+tienes el $v y }no hay un Node portátil que descargar para este sistema"
+    detalle "Instala $nodo o superior desde https://nodejs.org"
   fi
 }
 

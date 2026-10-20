@@ -90,6 +90,27 @@ describe('suma_node', () => {
   });
 });
 
+describe('nodo_minimo', () => {
+  it('da el número antes del primer punto; sin una versión de números, nada y 1', () => {
+    expect(bash('nodo_minimo 24.22.0')).toMatchObject({ codigo: 0, salida: '24' });
+    expect(bash('nodo_minimo 26.1.0')).toMatchObject({ codigo: 0, salida: '26' });
+    for (const v of ['', 'linux', 'v24.22.0', '.1.0']) expect(bash(`nodo_minimo '${v}'`)).toMatchObject({ codigo: 1, salida: '', error: '' });
+  });
+  // el mínimo sale solo de NODO_VERSION: un número a mano en una comparación o en un mensaje se quedaría atrás al subirla
+  it('ni ./shelter, ni el diagnóstico, ni plataforma.sh escriben a mano el mínimo de Node', () => {
+    for (const f of ['shelter', path.join('scripts', 'doctor.sh'), path.join('scripts', 'plataforma.sh')]) {
+      const t = readFileSync(path.join(RAIZ, f), 'utf8');
+      expect(t, f).not.toMatch(/-(ge|gt|le|lt)\s+"?[1-9]\d\b/);
+      expect(t, f).not.toMatch(/Node [1-9]\d\b/);
+    }
+  });
+  it('los mensajes de error dicen el mínimo de la versión que reciben', () => {
+    expect(bash('arq_node 24.22.0', { m: 'riscv64' }).error).toContain('instala Node 24 desde https://nodejs.org');
+    expect(bash('suma_node 26.1.0 linux x64').error).toContain('Instala Node 26 desde https://nodejs.org');
+    expect(bash('suma_node linux x64').error).toContain('Instala Node desde https://nodejs.org');
+  });
+});
+
 describe('sha256_comprobar', () => {
   it('usa sha256sum si está', () => {
     falso('sha256sum'); falso('shasum');

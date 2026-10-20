@@ -12,13 +12,23 @@ so_node() {
   esac
 }
 
-# Arquitectura como la usa Node en sus descargas: x64 | arm64. Cualquier otra, error.
+# Node mínimo de una versión x.y.z (su número antes del primer punto): nodo_minimo <versión>. Si eso no es un número,
+# nada y 1. ./shelter y el diagnóstico sacan así el mínimo de NODO_VERSION, sin escribirlo a mano
+nodo_minimo() {
+  local m="${1:-}"; m="${m%%.*}"
+  case "$m" in ''|*[!0-9]*) return 1 ;; esac
+  echo "$m"
+}
+
+# Arquitectura como la usa Node en sus descargas: x64 | arm64. Cualquier otra, error, que pide instalar el mínimo de
+# <versión> si llega: arq_node [<versión>]
 arq_node() {
-  local m; m="$(uname -m)"
+  local m n; m="$(uname -m)"
   case "$m" in
     x86_64|amd64) echo x64 ;;
     arm64|aarch64) echo arm64 ;;
-    *) printf 'No hay un Node portátil para esta arquitectura («%s»): instala Node 24 desde https://nodejs.org\n' "$m" >&2; return 1 ;;
+    *) n="$(nodo_minimo "${1:-}")" || n=""
+      printf 'No hay un Node portátil para esta arquitectura («%s»): instala Node%s desde https://nodejs.org\n' "$m" "${n:+ $n}" >&2; return 1 ;;
   esac
 }
 
@@ -26,12 +36,17 @@ arq_node() {
 # <arq>. Sin suma conocida no hay descarga: nunca se ejecuta un Node sin comprobar. Cambiar NODO_VERSION en ./shelter sin
 # añadir aquí las sumas de la nueva falla antes de descargar nada.
 suma_node() {
+  local n
+  # de https://nodejs.org/dist/v<versión>/SHASUMS256.txt.asc, con su firma comprobada con gpg contra las claves de
+  # https://github.com/nodejs/release-keys antes de copiar sus cuatro líneas .tar.gz (darwin-arm64, darwin-x64,
+  # linux-arm64, linux-x64)
   case "${1:-}-${2:-}-${3:-}" in
     24.22.0-darwin-arm64) echo 6a9724d9b50a5f22b4816cded441b5a8d9ddae546191a5e5b7efa5a5e2ee26d5 ;;
     24.22.0-darwin-x64) echo 495e3f273c645f3c4677d438304cdfc701729ea5dec5728f5c8e76a2dece4b91 ;;
     24.22.0-linux-arm64) echo b7e7991d5407815adfa74a2a9cd4db683552c8ce32ff4a295c22e972849c3f5d ;;
     24.22.0-linux-x64) echo 28ea0a438de9a13bd7891fd758eee6c7819ee8af5442dfd8d45bd65e56d4228c ;;
-    *) printf 'No conozco la suma oficial de Node v%s para «%s %s»: no lo descargo. Instala Node 24 desde https://nodejs.org\n' "${1:-}" "${2:-}" "${3:-}" >&2; return 1 ;;
+    *) n="$(nodo_minimo "${1:-}")" || n=""
+      printf 'No conozco la suma oficial de Node v%s para «%s %s»: no lo descargo. Instala Node%s desde https://nodejs.org\n' "${1:-}" "${2:-}" "${3:-}" "${n:+ $n}" >&2; return 1 ;;
   esac
 }
 
