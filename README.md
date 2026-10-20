@@ -164,8 +164,9 @@ no pide contraseña ni instala nada en el sistema.
 aplicaciones (en Desarrollo), con su icono, solo para tu usuario y sin sudo: una entrada en
 `${XDG_DATA_HOME:-~/.local/share}/applications/work-shelter-public.desktop` y el icono en
 `icons/hicolor/<tamaño>/apps/` de esa misma carpeta. Abre `./shelter` de esta carpeta sin terminal: lo que escribiría
-va a `shelter.log`, en `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/`. Si ya está abierto, trae su ventana al
-frente; dos clics seguidos no lo preparan dos veces. Si mueves la carpeta del juego, repítelo. Para quitarlo:
+va a `shelter.log`, en `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/` (cada arranque empieza uno nuevo;
+el anterior queda en `shelter.log.1`). Si ya está abierto, trae su ventana al frente; dos clics seguidos no lo preparan
+dos veces. Si mueves la carpeta del juego, repítelo. Para quitarlo:
 `./shelter desinstalar-app` (borra solo esa entrada y sus iconos).
 
 **Poner al día:** `git pull` en la carpeta y `./shelter` (si cambian las dependencias, las reinstala solo).
@@ -433,6 +434,9 @@ son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de C
 - **«No encuentro Claude Code».** Instálalo y entra con tu cuenta. Después vuelve a abrir work-shelter.
 - **No se abre una segunda ventana.** Es a propósito: si el juego ya está abierto, abrirlo otra vez (desde el menú, el
   Dock o `./shelter`) trae al frente la ventana que hay.
+- **«Otro arranque de work-shelter sigue preparándolo… Vuelve a intentarlo dentro de un momento».** Lo abriste dos
+  veces seguidas y el primero aún prepara (la primera vez puede tardar minutos). El segundo espera hasta dos minutos y
+  después se retira sin tocar nada; cuando el primero termine, se abrirá su ventana.
 - **El puerto 3778 está ocupado** por otro programa. Ciérralo o arranca con `SHELTER_PUERTO=3779 ./shelter`.
 - **La ventana del juego no se abre y se abre el navegador** (sobre todo en Linux). `./shelter` lo avisa en la
   terminal y guarda lo que dijo Electron en `electron.log` (`~/Library/Logs/work-shelter-public/` en macOS;
@@ -440,7 +444,8 @@ son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de C
   aislamiento (sandbox), lo dice también: pasa, por ejemplo, en Ubuntu 23.10 y posteriores, que con AppArmor limitan
   los espacios de nombres de usuario. `./shelter doctor` lo comprueba y da la solución segura: el ayudante
   `chrome-sandbox` de Electron, de root y con modo 4755 (tu usuario no puede crear un archivo SUID de root, por eso
-  nada tuyo puede aprovecharlo). Hay que repetirlo cada vez que se reinstala Electron. Hasta que lo arregles, el juego
+  nada tuyo puede aprovecharlo). Hay que repetirlo cada vez que se reinstala Electron. Si ya creaste un perfil de AppArmor
+  para la ventana y abre, `./shelter doctor` lo seguirá marcando con ✗: puedes ignorarlo. Hasta que lo arregles, el juego
   se abre en el navegador y funciona igual. No arranques Electron con `--no-sandbox`.
 - **«Sin gráficos 3D».** El equipo no da WebGL2 al juego: faltan o están anticuados los controladores de la gráfica,
   la aceleración por hardware está apagada, o es una máquina virtual o un escritorio remoto. La pantalla dice qué

@@ -20,7 +20,6 @@ const p = createRequire(import.meta.url)('../electron/plataforma.cjs') as {
   etiquetaPanico(plataforma: string): string;
   esEnlaceExterno(url: unknown): boolean;
   nombreEscritorio(plataforma: string): string | null;
-  urlDelServidorLocal(url: unknown): boolean;
 };
 
 describe('carpetaRegistros', () => {
@@ -174,16 +173,21 @@ describe('nombreEscritorio (la identidad de la ventana en Linux)', () => {
 });
 
 describe('una sola ventana (requestSingleInstanceLock)', () => {
-  it('urlDelServidorLocal: solo la del servidor local del juego pasa a la ventana abierta', () => {
-    expect(p.urlDelServidorLocal('http://127.0.0.1:3778/#t=abc')).toBe(true);
-    for (const u of ['https://127.0.0.1:3778/#t=a', 'http://localhost:3778/', 'http://127.0.0.1.example/', 'http://127.0.0.1:3778/otra', 'file:///etc/passwd', 'javascript:alert(1)', '', null, 42])
-      expect(p.urlDelServidorLocal(u), String(u)).toBe(false);
-  });
   it('electron/main.cjs pide el cerrojo siempre (no solo desde la app) y atiende a la segunda', async () => {
     const { readFileSync } = await import('node:fs');
     const t = readFileSync(new URL('../electron/main.cjs', import.meta.url), 'utf8');
     expect(t).toMatch(/^if \(!app\.requestSingleInstanceLock\(/m);
     expect(t).not.toMatch(/desdeApp && !app\.requestSingleInstanceLock/);
     expect(t).toContain("app.on('second-instance'");
+  });
+  it('la segunda solo trae al frente la ventana que ya está: no le pasa ninguna dirección ni la cambia de servidor', async () => {
+    const { readFileSync } = await import('node:fs');
+    const t = readFileSync(new URL('../electron/main.cjs', import.meta.url), 'utf8');
+    expect(t).toMatch(/^if \(!app\.requestSingleInstanceLock\(\)\) app\.exit\(0\);$/m);
+    const i = t.indexOf("app.on('second-instance'");
+    const cuerpo = t.slice(i, t.indexOf('\n});', i));
+    expect(cuerpo).not.toMatch(/abrir\(|loadURL|datos/);
+    expect(cuerpo).toContain('ventana.focus()');
+    expect(t).not.toContain('urlDelServidorLocal');
   });
 });

@@ -203,15 +203,25 @@ describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)',
     const texto = readFileSync(log, 'utf8');
     expect(texto).toMatch(/^== .+ ==$/m); expect(texto).toContain('hola'); expect(texto).toContain('fallo');
     expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(path.dirname(log)).mode & 0o777).toBe(0o700);
-    bash('registro_desde_menu && echo otra', { real: true, env: { XDG_STATE_HOME: estado } });
-    expect(readFileSync(log, 'utf8')).toContain('hola');   // se añade, no se pisa
-    expect(readFileSync(log, 'utf8')).toContain('otra');
   });
-  it('un registro que ya existía con otros permisos se cierra a 600', () => {
+  it('cada arranque desde el menú empieza un registro nuevo y guarda solo el anterior en shelter.log.1 (no crece sin fin)', () => {
+    const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
+    const env = { XDG_STATE_HOME: estado };
+    bash('registro_desde_menu && echo primero', { real: true, env });
+    bash('registro_desde_menu && echo segundo', { real: true, env });
+    expect(readFileSync(log, 'utf8')).toContain('segundo'); expect(readFileSync(log, 'utf8')).not.toContain('primero');
+    expect(readFileSync(`${log}.1`, 'utf8')).toContain('primero');
+    bash('registro_desde_menu && echo tercero', { real: true, env });
+    expect(readFileSync(log, 'utf8')).toContain('tercero');
+    expect(readFileSync(`${log}.1`, 'utf8')).toContain('segundo'); expect(readFileSync(`${log}.1`, 'utf8')).not.toContain('primero');
+    for (const f of [log, `${log}.1`]) expect(statSync(f).mode & 0o777, f).toBe(0o600);
+  });
+  it('un registro que ya existía con otros permisos pasa a shelter.log.1 cerrado a 600; el nuevo, también 600', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
     mkdirSync(path.dirname(log), { recursive: true }); writeFileSync(log, 'viejo\n'); chmodSync(log, 0o644);
     bash('registro_desde_menu', { real: true, env: { XDG_STATE_HOME: estado } });
-    expect(statSync(log).mode & 0o777).toBe(0o600);
+    expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(`${log}.1`).mode & 0o777).toBe(0o600);
+    expect(readFileSync(`${log}.1`, 'utf8')).toBe('viejo\n');
   });
   it('si no se puede crear el registro, falla y la salida se queda donde estaba', () => {
     const tapon = path.join(dir, 'tapon'); writeFileSync(tapon, '');   // un archivo donde tendría que ir la carpeta
@@ -270,6 +280,27 @@ describe('tomar_cerrojo (dos arranques a la vez no preparan a la vez)', () => {
     expect(r.error).toContain(`Otro arranque de work-shelter (pid ${process.pid}) sigue preparándolo`);
     expect(readFileSync(path.join(cerrojo(), 'pid'), 'utf8').trim()).toBe(String(process.pid));
   });
+  it('un .romper abandonado (su dueño murió entre crearlo y quitarlo) se recupera', () => {
+    const muerto = spawnSync('true').pid!;
+    for (const c of [cerrojo(), `${cerrojo()}.romper`]) { mkdirSync(c, { recursive: true }); writeFileSync(path.join(c, 'pid'), `${muerto}\n`); }
+    const r = bash(`tomar_cerrojo "${cerrojo()}" 2 && cat "${path.join(cerrojo(), 'pid')}" && echo "$$"`, { real: true });
+    const [pid, propio] = r.salida.split('\n');
+    expect(r.codigo).toBe(0); expect(pid).toBe(propio); expect(existsSync(`${cerrojo()}.romper`)).toBe(false);
+  });
+  it('un .romper de un dueño vivo se respeta: no se toca ni se recupera el cerrojo', () => {
+    const muerto = spawnSync('true').pid!;
+    mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), `${muerto}\n`);
+    mkdirSync(`${cerrojo()}.romper`); writeFileSync(path.join(`${cerrojo()}.romper`, 'pid'), `${process.pid}\n`);
+    const r = bash(`tomar_cerrojo "${cerrojo()}" 1`, { real: true });
+    expect(r.codigo).toBe(1);
+    expect(readFileSync(path.join(`${cerrojo()}.romper`, 'pid'), 'utf8').trim()).toBe(String(process.pid));
+    expect(readFileSync(path.join(cerrojo(), 'pid'), 'utf8').trim()).toBe(String(muerto));
+  });
+  it('pid_de_cerrojo sin archivo pid falla sin ruido en stderr', () => {
+    expect(bash(`pid_de_cerrojo "${path.join(dir, 'nada')}"`, { real: true })).toMatchObject({ codigo: 1, salida: '', error: '' });
+    mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), '123');   // sin salto de línea
+    expect(bash(`pid_de_cerrojo "${cerrojo()}"`, { real: true })).toMatchObject({ codigo: 0, salida: '123', error: '' });
+  });
   it('soltar_cerrojo solo quita el suyo', () => {
     mkdirSync(cerrojo(), { recursive: true }); writeFileSync(path.join(cerrojo(), 'pid'), `${process.pid}\n`);
     bash(`CERROJO_LANZADOR="${cerrojo()}"; soltar_cerrojo`, { real: true });
@@ -278,14 +309,73 @@ describe('tomar_cerrojo (dos arranques a la vez no preparan a la vez)', () => {
     rmSync(cerrojo(), { recursive: true });
     expect(bash(`tomar_cerrojo "${cerrojo()}" 0 && soltar_cerrojo && [ ! -e "${cerrojo()}" ]`, { real: true }).codigo).toBe(0);
   });
-  it('./shelter lo toma antes de preparar nada, lo suelta antes de cada exec y cuando el servidor contesta', () => {
+  it('./shelter lo toma antes de preparar nada, lo suelta antes de cada exec posterior y cuando el servidor contesta', () => {
     const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
     const toma = t.indexOf('tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"');
     expect(toma).toBeGreaterThan(t.indexOf("trap 'soltar_cerrojo' EXIT"));
     for (const paso of ['# 1. Node', 'curl -fL', 'npm ci', 'install.js']) expect(toma).toBeLessThan(t.indexOf(paso));
-    for (const l of t.split('\n').filter(l => /\bexec "\$NODE"/.test(l))) expect(l, l).toContain('soltar_cerrojo; exec');
+    // cada exec tras tomarlo lo suelta antes (superficie y enganchar van antes de tomarlo: no lo esperan)
+    for (const l of t.slice(toma).split('\n').filter(l => /\bexec "\$NODE"/.test(l))) expect(l, l).toContain('soltar_cerrojo; exec');
     expect(t.indexOf('soltar_cerrojo   # el servidor ya contesta')).toBeGreaterThan(t.indexOf('URL="http://127.0.0.1:$PUERTO/#t='));
     expect(t).toContain('traigo su ventana al frente');
+  });
+  it('./shelter, si no consigue el cerrojo, no prepara nada: va directo a ya_abierto_sin_cerrojo y sale', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const linea = t.split('\n').find(l => l.includes('tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"'))!;
+    expect(linea).toMatch(/^if ! tomar_cerrojo "\$RAIZ\/\.runtime\/lanzador\.lock"; then ya_abierto_sin_cerrojo "\$RAIZ" "\$PUERTO" "\$DATOS" && exit 0; exit 1; fi$/);
+    expect(t.indexOf('PUERTO="${SHELTER_PUERTO:-3778}"')).toBeLessThan(t.indexOf(linea));
+    expect(t.indexOf('DATOS="${SHELTER_DATOS:-$RAIZ/.data}"')).toBeLessThan(t.indexOf(linea));
+  });
+  it('superficie y enganchar no esperan al cerrojo (no preparan nada) ni descargan Node', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const toma = t.indexOf('tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"');
+    const sub = t.indexOf('exec "$NODE" --import tsx server/superficie.ts');
+    expect(sub).toBeGreaterThan(0); expect(sub).toBeLessThan(toma);
+    expect(t.slice(0, toma)).not.toMatch(/curl -fL|npm" ci|install\.js/);
+  });
+});
+
+describe('ya_abierto_sin_cerrojo (se agotó la espera del cerrojo: nunca se prepara nada)', () => {
+  const juego = () => path.join(dir, 'juego'); const datos = () => path.join(dir, 'datos');
+  // el binario de Electron ya descargado, como lo deja su paquete: dist/<path.txt>
+  const electronDescargado = () => {
+    const e = path.join(juego(), 'node_modules', 'electron'); mkdirSync(path.join(e, 'dist'), { recursive: true });
+    writeFileSync(path.join(e, 'path.txt'), 'electron');
+    const f = path.join(e, 'dist', 'electron');
+    writeFileSync(f, '#!/bin/bash\nprintf \'%s\\n\' "electron $* url=$SHELTER_URL" >> "$REG"\n'); chmodSync(f, 0o755);
+  };
+  // los que preparan, de mentira: si alguno se llamara, quedaría en el registro
+  const llamar = (servidor: boolean, env: Record<string, string> = {}) => {
+    falso('curl', servidor ? 0 : 7); for (const p of ['npm', 'node', 'npx', 'tar']) falso(p);
+    mkdirSync(datos(), { recursive: true }); writeFileSync(path.join(datos(), 'token'), 'secreto\n');
+    return bash(`ya_abierto_sin_cerrojo "${juego()}" 3778 "${datos()}"`, { env });
+  };
+  const SALUD = 'curl -fs http://127.0.0.1:3778/salud';
+  it('con un servidor que contesta y Electron ya descargado: lo lanza para traer al frente la ventana abierta y sale con 0', () => {
+    electronDescargado();
+    const r = llamar(true);
+    expect(r.codigo).toBe(0); expect(r.salida).toContain('traigo su ventana al frente');
+    expect(registro()).toEqual([SALUD, 'electron electron/main.cjs url=http://127.0.0.1:3778/#t=secreto']);
+  });
+  it('con un servidor que contesta y sin Electron descargado: no descarga nada, dice dónde está y sale con 0', () => {
+    const r = llamar(true);
+    expect(r.codigo).toBe(0); expect(r.salida).toContain('http://127.0.0.1:3778');
+    expect(registro()).toEqual([SALUD]);
+    mkdirSync(path.join(juego(), 'node_modules', 'electron', 'dist'), { recursive: true });   // paquete sin binario
+    writeFileSync(path.join(juego(), 'node_modules', 'electron', 'path.txt'), 'electron'); rmSync(reg);
+    expect(llamar(true).codigo).toBe(0); expect(registro()).toEqual([SALUD]);
+  });
+  it('desde la app de macOS: le pasa la dirección en su línea SHELTER_URL, sin lanzar otra ventana', () => {
+    electronDescargado();
+    const r = llamar(true, { SHELTER_DESDE_APP: '1' });
+    expect(r.codigo).toBe(0); expect(r.salida).toBe('SHELTER_URL=http://127.0.0.1:3778/#t=secreto');
+    expect(registro()).toEqual([SALUD]);
+  });
+  it('sin servidor que conteste: 1 con un mensaje claro, sin preparar ni lanzar nada', () => {
+    electronDescargado();
+    const r = llamar(false);
+    expect(r.codigo).toBe(1); expect(r.error).toMatch(/Otro arranque de work-shelter.*Vuelve a intentarlo dentro de un momento/s);
+    expect(registro()).toEqual([SALUD]);
   });
 });
 

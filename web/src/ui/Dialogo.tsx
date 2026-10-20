@@ -32,7 +32,7 @@ import { CMD, siguienteZ, atajoVentana, BotonesVentana, Pestanas, Confirmacion }
 import { CTRL } from './teclas';
 import { duenoSesion, interlocutor, rotuloRama } from './copias';
 import { sacarASuperficie } from './superficie';
-import { avisoCapacidad, disponible, useDisponible } from './capacidades';
+import { avisoCapacidad, useDisponible } from './capacidades';
 import { type AdjuntoLocal, subirArchivos, elegirArchivos, subiendo, rutasListas, BandejaAdjuntos, AdjuntosEnviados, useDictado, BotonesEntrada, TiraDictado, atajoAdjuntar } from './entrada';
 
 type Vista = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: ElementoHistorial } | { tipo: 'historial' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -518,6 +518,7 @@ function useEscDoble() {
 
 // ---------------------------------------------------------------- trabajo nuevo / retomar
 function Nuevo({ h, p, reanudar, volver }: { h: ResumenHabitante; p: PestanaCom; reanudar?: ElementoHistorial; volver: () => void }) {
+  const dictadoDisponible = useDisponible('dictado');   // reactivo: el texto de ayuda sigue al dictado si cambia
   const p0 = prefs();
   const [texto, setTexto0] = useState(p.borrador ?? '');
   const setTexto = (t: string) => { setTexto0(t); ponerPestana(h.id, p.id, { borrador: t }); };
@@ -589,7 +590,7 @@ function Nuevo({ h, p, reanudar, volver }: { h: ResumenHabitante; p: PestanaCom;
       <div className="formulario-escribir">
         <div className={'linea-entrada' + (fila === 0 ? ' activa' : '')}>
           <span className="prompt-sim">&gt;</span>
-          <textarea ref={area} value={texto} rows={3} readOnly={dictado.activo} placeholder={reanudar ? 'Opcional: añade una instrucción, o Enter para retomar sin más' : `Describe el trabajo, como en la terminal de Claude Code${disponible('dictado') ? ` (o díctalo con ${CTRL}D)` : ''}`}
+          <textarea ref={area} value={texto} rows={3} readOnly={dictado.activo} placeholder={reanudar ? 'Opcional: añade una instrucción, o Enter para retomar sin más' : `Describe el trabajo, como en la terminal de Claude Code${dictadoDisponible ? ` (o díctalo con ${CTRL}D)` : ''}`}
             onFocus={() => setFila(0)}
             onChange={e => { setTexto(e.target.value); }}
             onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); adjuntar(h.id, p.id, e.clipboardData.files); } }}
@@ -637,6 +638,7 @@ function Entrada({ e }: { e: EntradaCuaderno }) {
 }
 
 function Sesion({ h, s, p, salir, alCerrar }: { h: ResumenHabitante; s: ResumenSesion; p: PestanaCom; salir: () => void; alCerrar: () => void }) {
+  const dictadoDisponible = useDisponible('dictado');
   const entradas = vivo.usar(e => e.entradas[s.id]) ?? [];
   const parcial = vivo.usar(e => e.parcial[s.id]) ?? '';
   const [texto, setTexto0] = useState(p.borrador ?? '');
@@ -704,7 +706,7 @@ function Sesion({ h, s, p, salir, alCerrar }: { h: ResumenHabitante; s: ResumenS
         <div className="linea-entrada activa">
           {sugerencias.length > 0 && <ul className="sugerencias">{sugerencias.map((c, k) => <li key={c.nombre} className={k === selCmd ? 'activa' : ''} onMouseDown={ev => { ev.preventDefault(); setTexto('/' + c.nombre + ' '); }}><b>/{c.nombre}</b> <span>{c.descripcion}</span></li>)}</ul>}
           <span className="prompt-sim">&gt;</span>
-          <textarea ref={area} value={texto} rows={2} readOnly={dictado.activo} placeholder={vivaTrabajando ? 'Añade algo mientras trabaja · /btw pregunta lateral · /stop parar' : (disponible('dictado') ? `Responde, dicta con ${CTRL}D, o escribe / para ver comandos` : 'Responde o escribe / para ver comandos')}
+          <textarea ref={area} value={texto} rows={2} readOnly={dictado.activo} placeholder={vivaTrabajando ? 'Añade algo mientras trabaja · /btw pregunta lateral · /stop parar' : (dictadoDisponible ? `Responde, dicta con ${CTRL}D, o escribe / para ver comandos` : 'Responde o escribe / para ver comandos')}
             onChange={e => { setTexto(e.target.value); setSelCmd(0); }}
             onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); adjuntar(h.id, p.id, e.clipboardData.files); } }}
             onKeyDown={e => {

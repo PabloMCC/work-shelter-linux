@@ -17,9 +17,8 @@ if (process.env.SHELTER_CDP && process.env.SHELTER_DEV === '1') app.commandLine.
 const URL_INICIAL = process.env.SHELTER_URL; delete process.env.SHELTER_URL;
 const desdeApp = !URL_INICIAL && !!process.env.SHELTER_RAIZ;
 // una sola ventana del juego (por carpeta de datos de Electron: una de QA con su --user-data-dir va aparte): la segunda
-// pasa su dirección a la primera, que se pone al frente, y se cierra
-if (!app.requestSingleInstanceLock({ url: URL_INICIAL || null })) app.exit(0);
-let urlAbierta = URL_INICIAL || null;
+// avisa a la primera, que se pone al frente, y se cierra
+if (!app.requestSingleInstanceLock()) app.exit(0);
 let ventana, origen, servidor;
 // huella de lo que solo se lee al abrir la app (este archivo, la precarga de Spotify, el supervisor, ./shelter): va al
 // servidor, que al reiniciar la compara con la de ahora y, si ha cambiado, pide volver a abrir la app entera (código 76)
@@ -170,7 +169,7 @@ function volver() {
   ventana.show(); ventana.focus();
 }
 
-function abrir(u) { origen = new URL(u).origin; urlAbierta = u; ventana.loadURL(u); }   // la URL lleva el secreto en #t=; para comparar, solo el origen
+function abrir(u) { origen = new URL(u).origin; ventana.loadURL(u); }   // la URL lleva el secreto en #t=; para comparar, solo el origen
 
 // --- Spotify (la discoteca): suena en Google Chrome sin ventana y el juego enseña su página (electron/chromeRemoto.cjs) ---
 // La ventana del juego lo maneja por IPC (precarga.cjs: window.shelterRemoto): abrir, a la vista o no, tamaño, ratón y
@@ -314,12 +313,10 @@ app.whenReady().then(cacheLimpia).then(() => {
   ventana.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(ARRANQUE));
   arrancar();
 });
-// otro arranque con la ventana abierta (otro clic en el Dock o en el menú, otro ./shelter): al frente. Si trae la dirección
-// de otro servidor (el de antes se cerró y este arranque ha levantado uno nuevo), la ventana pasa a él
-app.on('second-instance', (_e, _argv, _cwd, datos) => {
+// otro arranque con la ventana abierta (otro clic en el Dock o en el menú, otro ./shelter): solo la trae al frente. Nunca
+// la cambia de servidor: la app no se abre dos veces y un segundo arranque no puede llevarse la ventana a otro sitio
+app.on('second-instance', () => {
   if (!ventana || ventana.isDestroyed()) return;
-  const u = datos?.url;
-  if (plataforma.urlDelServidorLocal(u) && u !== urlAbierta && !desdeApp) abrir(u);
   if (escondido) { volver(); return; }
   if (ventana.isMinimized()) ventana.restore();
   ventana.show(); ventana.focus();

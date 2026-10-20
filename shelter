@@ -30,33 +30,46 @@ case "${1:-}" in doctor) exec bash scripts/doctor.sh ;; superficie|enganchar) SU
 if [ -n "$INSTALAR_APP" ]; then instalar_app_disponible || exit 1; fi
 if [ -n "$DESINSTALAR_APP" ]; then desinstalar_app_disponible || exit 1; fi
 
+# El Node que ya hay: el del sistema si es 22 o superior, o el portátil ya descargado en .runtime/. No descarga nada
+nodo_disponible() {
+  if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
+    NODE="$(command -v node)"; NPM="$(command -v npm)"; return 0
+  fi
+  local so arq; so="$(so_node 2>/dev/null)" || return 1; arq="$(arq_node 2>/dev/null)" || return 1
+  DIR=".runtime/node-v$NODO_VERSION-$so-$arq"
+  [ -x "$DIR/bin/node" ] || return 1
+  export PATH="$RAIZ/$DIR/bin:$PATH"; NODE="$RAIZ/$DIR/bin/node"; NPM="$RAIZ/$DIR/bin/npm"
+}
+
+# superficie y enganchar no preparan nada (solo usan lo ya instalado): no esperan al cerrojo del lanzador ni descargan Node
+if [ -n "$SUBORDEN" ]; then
+  nodo_disponible && [ -d node_modules/tsx ] || { rojo "work-shelter aún no está instalado: ejecuta ./shelter una vez."; exit 1; }
+  exec "$NODE" --import tsx server/superficie.ts "$@"
+fi
+
+PUERTO="${SHELTER_PUERTO:-3778}"
+DATOS="${SHELTER_DATOS:-$RAIZ/.data}"
 # Un solo arranque preparando a la vez (scripts/plataforma.sh, tomar_cerrojo): otro que llegue espera a que este tenga el
-# servidor en marcha y entonces trae al frente la ventana abierta. Se suelta en cuanto el servidor contesta, antes de
-# cada exec y, si algo falla antes, al salir
+# servidor en marcha (se suelta en cuanto contesta, antes de cada exec y, si algo falla antes, al salir) y sigue por el
+# camino de «ya abierto», que trae al frente la ventana. Si la espera se agota sin conseguirlo, no se prepara nada
+# (ya_abierto_sin_cerrojo): con un servidor que contesta, trae al frente la ventana abierta y sale con 0; sin él, avisa
+# de que el otro arranque sigue preparándolo y sale con 1
 trap 'soltar_cerrojo' EXIT
-tomar_cerrojo "$RAIZ/.runtime/lanzador.lock" || { curl -fs "http://127.0.0.1:${SHELTER_PUERTO:-3778}/salud" >/dev/null 2>&1 || exit 1; }
+if ! tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"; then ya_abierto_sin_cerrojo "$RAIZ" "$PUERTO" "$DATOS" && exit 0; exit 1; fi
 
 # 1. Node 22+ (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
-if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
-  NODE="$(command -v node)"; NPM="$(command -v npm)"
-else
+if ! nodo_disponible; then
   SO="$(so_node)"; ARQ="$(arq_node)"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
   DIR=".runtime/node-v$NODO_VERSION-$SO-$ARQ"
-  if [ ! -x "$DIR/bin/node" ]; then
-    amarillo "No encuentro Node 22 o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
-    mkdir -p .runtime
-    curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/node-v$NODO_VERSION-$SO-$ARQ.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
-    # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
-    echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 22 desde https://nodejs.org"; exit 1; }
-    tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
-  fi
+  amarillo "No encuentro Node 22 o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
+  mkdir -p .runtime
+  curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/node-v$NODO_VERSION-$SO-$ARQ.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
+  # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
+  echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 22 desde https://nodejs.org"; exit 1; }
+  tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
   export PATH="$RAIZ/$DIR/bin:$PATH"; NODE="$RAIZ/$DIR/bin/node"; NPM="$RAIZ/$DIR/bin/npm"
 fi
 
-if [ -n "$SUBORDEN" ]; then
-  [ -d node_modules/tsx ] || { rojo "work-shelter aún no está instalado: ejecuta ./shelter una vez."; exit 1; }
-  soltar_cerrojo; exec "$NODE" --import tsx server/superficie.ts "$@"
-fi
 if [ -n "$DESINSTALAR_APP" ]; then soltar_cerrojo; exec "$NODE" scripts/instalar-app-linux.mjs --desinstalar; fi
 
 # 2. Claude Code (necesario para que los habitantes trabajen)
@@ -109,8 +122,6 @@ if [ -n "$INSTALAR_APP" ]; then
 fi
 
 # 6. Servidor local (solo 127.0.0.1, bajo un supervisor que lo relanza al pulsar «Reiniciar» en el juego) y ventana
-PUERTO="${SHELTER_PUERTO:-3778}"
-DATOS="${SHELTER_DATOS:-$RAIZ/.data}"
 # un servidor de antes de los últimos cambios que siga en marcha se pone al día (o se aparta) sin cerrar sus terminales
 if curl -fs "http://127.0.0.1:$PUERTO/salud" >/dev/null 2>&1; then
   "$NODE" scripts/huellas.cjs poner-al-dia "$PUERTO" "$DATOS" >/dev/null || amarillo "No he podido poner al día el refugio que ya estaba abierto."

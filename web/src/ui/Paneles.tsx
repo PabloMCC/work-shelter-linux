@@ -20,8 +20,9 @@ import { sacarASuperficie } from './superficie';
 import { abrirBuscador } from './Buscador';
 import { terminales as terminalesAbiertas } from './Terminales';
 import { MAC, etiquetasAyuda } from './teclas';
-const A = etiquetasAyuda();
 import { avisoCapacidad, avisarNoDisponible, useDisponible, type Capacidad } from './capacidades';
+// las teclas de la ayuda (F1) con el nombre de este sistema: ⌘ en macOS, Ctrl en Linux
+const TECLAS_AYUDA = etiquetasAyuda();
 
 export const abrirPanel = (panel: Panel, panelDatos: any = null) => { juego.set({ panel, panelDatos }); };
 // lo que se abre desde el menú de Esc vuelve a él al salir (Esc o ×); abierto con su tecla, se cierra sin más
@@ -276,34 +277,34 @@ const CONTROLES: [string, string][] = [
   ['Q', 'ir directo al primer habitante que te espera'], ['T', 'terminal real de la sala (shell sobre PTY)'],
   ['R', 'cuaderno: transcripción completa de una conversación'], ['I', 'inventario, guía de campo y tienda'],
   ['N / C / L', 'ir a comunicaciones, planificación o logística'], ['G', 'cliente de git (en una sala de repo, con su repo)'], ['P', 'Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante)'],
-  [A.buscador, 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
+  [TECLAS_AYUDA.buscador, 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
   ['Esc', 'cierra lo abierto; en el refugio, el menú del juego: opciones, atajos, reiniciar, salir a la superficie y salir'],
   // en macOS va en «A la superficie»; en Linux solo esconde y solo con la ventana delante (sin atajo para todo el sistema)
-  ...(MAC ? [] : [[A.panico, 'tecla de pánico, con la ventana delante: el juego se esconde y se calla. Vuelve al abrir la app otra vez (menú o ./shelter)'] as [string, string]]),
+  ...(MAC ? [] : [[TECLAS_AYUDA.panico, 'tecla de pánico, con la ventana delante: el juego se esconde y se calla. Vuelve al abrir la app otra vez (menú o ./shelter)'] as [string, string]]),
 ];
 const CONTROLES_DIALOGO: FilaAyuda[] = [
   ['Enter', 'enviar (Shift+Enter: salto de línea)'], ['/', 'menú de comandos de Claude Code con autocompletado'],
   ['/btw pregunta', 'pregunta lateral sin interrumpir el trabajo'], ['Ctrl+↑↓, RePág/AvPág', 'desplazar la conversación mientras escribes'],
   ['Ctrl+C', 'parar al habitante (también /stop)'], ['Esc', 'atrás; en la conversación borra lo escrito; arriba del todo, vuelves al refugio y el trabajo sigue'],
-  ['← en los menús', 'atrás'], [`pegar, arrastrar · ${A.adjuntar} · 📎`, 'adjuntar capturas, imágenes o archivos (las imágenes las ve directamente)'],
-  [`${A.dictar} · 🎙`, `dictar: habla y pulsa Espacio (o ${A.dictar} otra vez) para terminar; Enter termina y envía, Esc descarta. Lo transcribe macOS en tu Mac (idioma en Opciones)`, 'dictado'],
+  ['← en los menús', 'atrás'], [`pegar, arrastrar · ${TECLAS_AYUDA.adjuntar} · 📎`, 'adjuntar capturas, imágenes o archivos (las imágenes las ve directamente)'],
+  [`${TECLAS_AYUDA.dictar} · 🎙`, `dictar: habla y pulsa Espacio (o ${TECLAS_AYUDA.dictar} otra vez) para terminar; Enter termina y envía, Esc descarta. Lo transcribe macOS en tu Mac (idioma en Opciones)`, 'dictado'],
   ['1 / 2 / 3 en permisos', 'permitir, permitir siempre en la sesión, denegar'],
   ['repo con configuración propia', 'si trae .claude/, .mcp.json o CLAUDE.md y no te fías aún de él, pregunta antes de empezar: 1 cargarla esta vez, 2 siempre para esa carpeta, 3 trabajar sin ella (sin sus hooks, MCP ni instrucciones)'],
 ];
 const CONTROLES_VENTANA: FilaAyuda[] = [
-  [A.pestanaNueva, 'pestaña nueva: otro trabajo con el mismo habitante, u otro shell en la terminal'],
-  [A.cerrar, `cerrar la pestaña${MAC ? ' / la ventana' : ''}; con algo en marcha, pregunta antes`], [A.pestanas, 'cambiar de pestaña'],
-  [`${A.abajo} · ${A.minimizar} · _`, 'minimizar a la barra de abajo a la izquierda; todo sigue y al volver se ve igual'],
-  [`${A.ampliar} · ▢`, `pantalla completa (${A.abajo} la restaura; también doble clic en la cabecera)`],
-  [`${A.barra} (B en el refugio)`, 'barra de ventanas con el teclado: ←→ elegir, ↑↓ fila, Intro abrir, X cerrar, M minimizar, Esc salir'],
-  [`${A.musica} (J en el refugio)`, `la música: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina, la despliega en mano: Espacio ⏯, ←→ ±10 s, ${A.mayus}←→ temas, ↑↓ volumen, Intro abre Spotify, Esc salir`, 'spotify'],
+  [TECLAS_AYUDA.pestanaNueva, 'pestaña nueva: otro trabajo con el mismo habitante, u otro shell en la terminal'],
+  [TECLAS_AYUDA.cerrar, `cerrar la pestaña${MAC ? ' / la ventana' : ''}; con algo en marcha, pregunta antes`], [TECLAS_AYUDA.pestanas, 'cambiar de pestaña'],
+  [`${TECLAS_AYUDA.abajo} · ${TECLAS_AYUDA.minimizar} · _`, 'minimizar a la barra de abajo a la izquierda; todo sigue y al volver se ve igual'],
+  [`${TECLAS_AYUDA.ampliar} · ▢`, `pantalla completa (${TECLAS_AYUDA.abajo} la restaura; también doble clic en la cabecera)`],
+  [`${TECLAS_AYUDA.barra} (B en el refugio)`, 'barra de ventanas con el teclado: ←→ elegir, ↑↓ fila, Intro abrir, X cerrar, M minimizar, Esc salir'],
+  [`${TECLAS_AYUDA.musica} (J en el refugio)`, `la música: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina, la despliega en mano: Espacio ⏯, ←→ ±10 s, ${TECLAS_AYUDA.mayus}←→ temas, ↑↓ volumen, Intro abre Spotify, Esc salir`, 'spotify'],
   ['Esc y Ctrl+C en la terminal', 'van al programa, como en iTerm: paran a Claude Code o salen de él'],
-  [`${A.sacar} · ↗`, 'sacar la pestaña a una terminal de tu escritorio (ver «A la superficie»)', 'superficie'],
+  [`${TECLAS_AYUDA.sacar} · ↗`, 'sacar la pestaña a una terminal de tu escritorio (ver «A la superficie»)', 'superficie'],
 ];
 // Salir a la superficie: lo del juego sigue en iTerm (o Terminal) cuando el juego se cae o no conviene que se vea
 const CONTROLES_SUPERFICIE: [string, string][] = [
-  [A.panico, 'tecla de pánico, desde cualquier app: el juego desaparece (ventana, Dock y sonido) y todo lo abierto sale a una ventana de iTerm. Otra vez (o abrir la app): vuelve como estaba'],
-  [`↗ · ${A.sacar}`, 'saca solo la pestaña activa de un intercomunicador o de una terminal'],
+  [TECLAS_AYUDA.panico, 'tecla de pánico, desde cualquier app: el juego desaparece (ventana, Dock y sonido) y todo lo abierto sale a una ventana de iTerm. Otra vez (o abrir la app): vuelve como estaba'],
+  [`↗ · ${TECLAS_AYUDA.sacar}`, 'saca solo la pestaña activa de un intercomunicador o de una terminal'],
   ['conversaciones', 'se cierran aquí y siguen fuera con claude --resume, en su carpeta y con sus permisos; si estaban trabajando, se interrumpen y fuera se les pide que sigan'],
   ['volver a traerlas', '/exit en iTerm y «Retomar un trabajo anterior» en el habitante; mientras sigan abiertas fuera, el archivo las marca con ↗ y no se retoman aquí'],
   ['terminales', 'son la misma (el mismo shell, con lo que tenga en marcha) aquí y fuera; mientras esté fuera manda su tamaño y sobrevive aunque cierres el juego'],
@@ -315,8 +316,8 @@ const CONTROLES_GIT: [string, string][] = [
   ['G', 'abrir el cliente de git (en una sala de repo, con su repo); también desde el puesto de Control de Versiones'],
   ['↑↓ en los archivos', 'elegir archivo (su diff a la derecha); Espacio prepara o quita, Supr descarta, Intro lo abre en el editor'],
   ['clic en el margen del diff', `elegir líneas sueltas (${MAC ? '⇧ clic' : 'Mayús+clic'}, un tramo) para preparar, quitar o descartar solo esas`],
-  [A.commit, 'commit de lo preparado (sin nada preparado: se prepara todo)'], ['▾ junto a Commit', 'commit y push, enmendar o deshacer el último'],
-  [A.vistasGit, 'cambios, historial, ramas y cajón, GitHub'],
+  [TECLAS_AYUDA.commit, 'commit de lo preparado (sin nada preparado: se prepara todo)'], ['▾ junto a Commit', 'commit y push, enmendar o deshacer el último'],
+  [TECLAS_AYUDA.vistasGit, 'cambios, historial, ramas y cajón, GitHub'],
 ];
 function Ayuda() {
   useTeclas(e => { if (e.code === 'Escape' || e.code === 'F1' || e.code === 'Enter') volver(); });
@@ -373,7 +374,7 @@ function OpcionesJuego() {
           </li>
         ))}
       </ul>
-      <p className="tenue">Las credenciales, la raíz de repos, el límite de sesiones y el atuendo se cambian en la cámara acorazada ({A.buscador} → «cámara»).</p>
+      <p className="tenue">Las credenciales, la raíz de repos, el límite de sesiones y el atuendo se cambian en la cámara acorazada ({TECLAS_AYUDA.buscador} → «cámara»).</p>
       <Teclas><kbd>↑↓</kbd>elegir <kbd>←→</kbd>cambiar <kbd>Esc</kbd>{desdeMenu() ? 'volver' : 'cerrar'}</Teclas>
     </Aparato>
   );
@@ -389,18 +390,18 @@ function MenuJuego() {
   const sub = (p: Panel) => () => { SFX.clic(); abrirPanel(p, { desde: 'menu' }); };
   const items: (ItemMenu & { f: () => void })[] = [
     { texto: 'Volver al refugio', pista: 'Esc', f: cerrarPanel },
-    { texto: 'Buscar conversaciones, acciones y salas', pista: A.buscador, f: () => { cerrarPanel(); abrirBuscador(); } },
+    { texto: 'Buscar conversaciones, acciones y salas', pista: TECLAS_AYUDA.buscador, f: () => { cerrarPanel(); abrirBuscador(); } },
     { texto: 'Opciones', pista: 'sonido e idioma del dictado', f: sub('opciones') },
     { texto: 'Atajos de teclado', pista: 'F1', f: sub('ayuda') },
     { texto: 'Reiniciar el juego', pista: 'aplica los cambios del servidor; las terminales siguen', f: sub('reiniciar') },
-    { texto: 'Salir a la superficie', pista: !superficie ? avisoCapacidad('superficie') : algo ? `todo lo abierto, a tu escritorio (${A.panico})` : 'no hay nada abierto que sacar', apagado: !superficie || !algo, f: () => { if (!superficie) { avisarNoDisponible('superficie'); return; } if (!algo) { SFX.noPermitido(); return; } cerrarPanel(); sacarASuperficie({ todo: true }); } },
+    { texto: 'Salir a la superficie', pista: !superficie ? avisoCapacidad('superficie') : algo ? `todo lo abierto, a tu escritorio (${TECLAS_AYUDA.panico})` : 'no hay nada abierto que sacar', apagado: !superficie || !algo, f: () => { if (!superficie) { avisarNoDisponible('superficie'); return; } if (!algo) { SFX.noPermitido(); return; } cerrarPanel(); sacarASuperficie({ todo: true }); } },
     { texto: 'Salir del refugio', peligro: true, f: sub('salir') },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
     <Aparato rotulo="MENÚ DEL SUPERVISOR" ancho={46}>
       <Opciones items={items} i={i} setI={setI} alElegir={k => items[k].f()} />
-      <Teclas><kbd>↑↓</kbd>elegir <kbd>Enter</kbd>aceptar <kbd>Esc</kbd>volver al refugio <kbd>{A.buscador}</kbd>buscar todo lo demás</Teclas>
+      <Teclas><kbd>↑↓</kbd>elegir <kbd>Enter</kbd>aceptar <kbd>Esc</kbd>volver al refugio <kbd>{TECLAS_AYUDA.buscador}</kbd>buscar todo lo demás</Teclas>
     </Aparato>
   );
 }

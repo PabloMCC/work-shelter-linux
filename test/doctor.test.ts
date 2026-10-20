@@ -1,5 +1,5 @@
 // ./shelter doctor (scripts/doctor.sh): cada comprobación en un bash aparte con un PATH falso (solo los programas de la
-// prueba) y una raíz falsa para /etc/os-release, /proc/sys, /dev/dri y /etc/apparmor.d (DOCTOR_RAIZ), así que da lo
+// prueba) y una raíz falsa para /etc/os-release, /proc/sys y /dev/dri (DOCTOR_RAIZ), así que da lo
 // mismo en un runner de macOS que en uno de Linux. Nunca instala ni ejecuta nada del sistema.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
@@ -177,60 +177,20 @@ describe('comprobar_sandbox (el aislamiento de la ventana)', () => {
     expect(r.salida).toContain(`sudo chown root:root "${cs}" && sudo chmod 4755 "${cs}"`);
     expect(r.salida).toMatch(/opción segura.*no puede crear un archivo SUID de root/);
     expect(r.salida).toMatch(/reinstal/);
+    expect(r.salida).toContain('puedes ignorar este punto');
     // un perfil `unconfined` + `userns` para un binario que tu usuario puede cambiar se salta la restricción: no se propone
     expect(r.salida).not.toMatch(/apparmor_parser|unconfined|userns,|sudo tee|abi </);
     expect(r.salida).not.toMatch(/no-sandbox|apparmor_restrict_unprivileged_userns=0|sysctl -w/);
   });
-  const perfil = (nombre: string, texto: string) => escribir(path.join(raiz, 'etc', 'apparmor.d', nombre), texto);
-  it('un perfil ya hecho para este binario exacto cuenta (informativo), con el aviso de que debilita la restricción', () => {
+  it('Ubuntu con la restricción y un perfil de AppArmor ya hecho: sigue en ✗ (el perfil no prueba nada) y dice que se puede ignorar si la ventana abre', () => {
     sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
     const electron = path.join(dist, 'electron');
-    for (const cabecera of [`"${electron}" flags=(unconfined) {`, `${electron} flags=(unconfined) {`, `profile shelter "${electron}" {`, `profile ${electron}{`]) {
-      perfil('shelter', `abi <abi/4.0>,\ninclude <tunables/global>\n${cabecera}\n  userns,\n}\n`);
-      const r = sandbox();
-      expect(r.salida, cabecera).toMatch(/✓.*perfil/); expect(r.salida, cabecera).toContain('faltan=0');
-      expect(r.salida, cabecera).toMatch(/debilita la restricción/); expect(r.salida, cabecera).toContain('sudo chmod 4755');
-    }
-  });
-  it('un perfil de otro binario no cuenta, tampoco el de una ruta que solo empieza igual', () => {
-    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    const electron = path.join(dist, 'electron');
-    perfil('chrome', '/opt/google/chrome/chrome flags=(unconfined) {\n  userns,\n}\n');
-    expect(sandbox().salida).toContain('faltan=1');
-    perfil('chrome', `"${electron}-viejo" flags=(unconfined) {\n  userns,\n}\n`);
-    expect(sandbox().salida).toContain('faltan=1');
-    perfil('chrome', `${electron}2 flags=(unconfined) {\n  userns,\n}\n`);
-    expect(sandbox().salida).toContain('faltan=1');
-  });
-  it('la ruta exacta sin ninguna regla userns (solo comentada) no cuenta', () => {
-    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    const electron = path.join(dist, 'electron');
-    perfil('mezcla', `"${electron}" {\n  # userns, comentado\n  /usr/** r,\n}\n# ${electron} userns\n`);
-    expect(sandbox().salida).toContain('faltan=1');
-  });
-  it('un perfil con bloques anidados y `userns create,` cuenta', () => {
-    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    const electron = path.join(dist, 'electron');
-    perfil('anidado', `profile shelter ${electron} flags=(unconfined) {\n  ^hijo {\n    /usr/** r,\n  }\n  allow userns create,\n}\n`);
-    expect(sandbox().salida).toContain('faltan=0');
-    perfil('anidado', `${electron} {\n  owner /tmp/** rw,\n  userns create,\n}\n`);
-    expect(sandbox().salida).toContain('faltan=0');
-  });
-  it('recorre un /etc/apparmor.d grande sin tardar (lee cada archivo una sola vez)', () => {
-    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    const relleno = Array.from({ length: 80 }, (_, i) => `  /usr/lib/cosa${i}/** r,`).join('\n');
-    for (let i = 0; i < 300; i++) perfil(`otro-${i}`, `/opt/app${i}/bin/app {\n${relleno}\n  userns,\n}\n`);
-    const inicio = Date.now();
-    expect(sandbox().salida).toContain('faltan=1');
-    expect(Date.now() - inicio).toBeLessThan(3000);
-  });
-  it('con el binario de root (no escribible): perfil válido y sin el aviso de que debilita la restricción', () => {
-    sysctl('kernel/apparmor_restrict_unprivileged_userns', '1');
-    const electron = path.join(dist, 'electron');
-    perfil('shelter', `"${electron}" flags=(unconfined) {\n  userns,\n}\n`);
-    const r = sandbox('escribible() { return 1; }');
-    expect(r.salida).toMatch(/✓.*perfil/); expect(r.salida).toContain('faltan=0');
-    expect(r.salida).not.toMatch(/debilita la restricción/); expect(r.salida).not.toContain('sudo chmod 4755');
+    escribir(path.join(raiz, 'etc', 'apparmor.d', 'shelter'), `"${electron}" flags=(unconfined) {\n  userns,\n}\n`);
+    const r = sandbox();
+    expect(r.salida).toContain('✗'); expect(r.salida).toContain('faltan=1'); expect(r.salida).not.toMatch(/✓/);
+    expect(r.salida).toContain('sudo chmod 4755');
+    expect(r.salida).toContain('Si ya creaste un perfil de AppArmor para esta ventana y la ventana abre, puedes ignorar este punto.');
+    expect(r.salida).not.toMatch(/debilita la restricción/);
   });
 });
 

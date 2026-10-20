@@ -83,11 +83,4 @@ function esEnlaceExterno(u) {
 // de Electron), así que main.cjs lo fija. En macOS no hace falta: la identidad la da la app
 const nombreEscritorio = (plataforma = process.platform) => (plataforma === 'linux' ? `${NOMBRE}.desktop` : null);
 
-// otro arranque (./shelter con el servidor ya abierto) pasa su dirección a la ventana que ya está: solo se acepta la del
-// servidor local del juego (http://127.0.0.1:<puerto>/)
-function urlDelServidorLocal(u) {
-  if (typeof u !== 'string') return false;
-  try { const x = new URL(u); return x.protocol === 'http:' && x.hostname === '127.0.0.1' && x.pathname === '/'; } catch { return false; }
-}
-
-module.exports = { nombreEscritorio, urlDelServidorLocal, carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoGlobal, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };
+module.exports = { nombreEscritorio, carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoGlobal, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };

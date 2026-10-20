@@ -134,34 +134,6 @@ dueno_y_modo() {
   echo "$3 ${1:0:10}"
 }
 
-# ¿Hay en /etc/apparmor.d un perfil para este binario exacto que permita userns? Es una heurística para un aviso
-# informativo (ya no se recomienda ningún perfil), no un intérprete de AppArmor: cada archivo de primer nivel se lee una
-# sola vez, sin un subshell por línea, y cuenta si nombra la ruta exacta como la de un perfil (entre comillas, o sin ellas
-# y seguida de un espacio o de su `{`, como en `<ruta> flags=… {` o `profile <nombre> <ruta> {`) y tiene una regla
-# userns sin comentar al principio de una línea (`userns,`, `allow userns,` o `userns create,`). No mira en qué bloque está
-perfil_apparmor_para() {
-  local f c ruta="$1" n=$'\n'
-  local regla=$'\n[ \t]*(allow[ \t]+)?userns([ \t]+create)?[ \t]*,'
-  for f in "${DOCTOR_RAIZ:-}"/etc/apparmor.d/*; do
-    [ -f "$f" ] || continue
-    c=""; IFS= read -r -d '' c < "$f" || true
-    c="$n$c$n"
-    case "$c" in *[[:space:]]"$ruta"[[:space:]{]* | *\""$ruta"\"*) ;; *) continue ;; esac
-    [[ $c =~ $regla ]] && return 0
-  done
-  return 1
-}
-
-# ¿Puede tu usuario cambiar este archivo (o la carpeta en la que está o estará)? Las pruebas la redefinen tras cargar
-# este script (como dueno_y_modo) para simular un binario de root
-escribible() {
-  local p="$1"
-  [ -w "$p" ] && return 0
-  p="${p%/*}"
-  while [ -n "$p" ] && [ ! -e "$p" ]; do p="${p%/*}"; done
-  [ -w "${p:-/}" ]
-}
-
 # El ayudante chrome-sandbox de root, la forma segura de devolverle el aislamiento: consejo_ayudante <entrada> <chrome-sandbox>
 consejo_ayudante() {
   detalle "$1 el ayudante chrome-sandbox de Electron, de root y con modo 4755 (tras el primer ./shelter, que descarga Electron):"
@@ -171,27 +143,19 @@ consejo_ayudante() {
 
 # El aislamiento (sandbox) de Chromium dentro de Electron: o su ayudante chrome-sandbox es de root con modo 4755, o el
 # sistema deja crear espacios de nombres de usuario sin privilegios. En Ubuntu 23.10 o posterior AppArmor lo restringe
-# (kernel.apparmor_restrict_unprivileged_userns=1) salvo a los binarios con un perfil que lo permita. Solo se recomienda
-# el ayudante: un perfil `unconfined` + `userns` para un binario que tu usuario puede cambiar deja a cualquier programa
-# tuyo saltarse la restricción. Nunca se propone abrir la ventana sin aislamiento: protege del contenido web.
+# (kernel.apparmor_restrict_unprivileged_userns=1) salvo a los binarios con un perfil que lo permita. Un perfil que haya
+# en /etc/apparmor.d no prueba nada (puede no estar cargado o no casar con esta ruta), así que no se busca: se da ✗ con
+# el ayudante, que es lo único que se recomienda (un perfil `unconfined` + `userns` para un binario que tu usuario puede
+# cambiar deja a cualquier programa tuyo saltarse la restricción), y se dice que, si ya hay perfil y la ventana abre, se
+# puede ignorar. Nunca se propone abrir la ventana sin aislamiento: protege del contenido web.
 comprobar_sandbox() {
-  local dist="${DOCTOR_ELECTRON_DIST:-$RAIZ_DOCTOR/node_modules/electron/dist}" bin cs v bloqueo=""
-  bin="$dist/electron"; cs="$dist/chrome-sandbox"
+  local dist="${DOCTOR_ELECTRON_DIST:-$RAIZ_DOCTOR/node_modules/electron/dist}" cs v bloqueo=""
+  cs="$dist/chrome-sandbox"
   local que="Aislamiento de la ventana (sandbox de Electron, protege del contenido web)"
   if [ -f "$cs" ] && [ "$(dueno_y_modo "$cs")" = "0 -rwsr-xr-x" ]; then bien "$que: con su ayudante chrome-sandbox de root"; return 0; fi
   v="$(leer_sysctl kernel/unprivileged_userns_clone)" && [ "$v" = 0 ] && bloqueo=sistema
   v="$(leer_sysctl user/max_user_namespaces)" && [ "$v" = 0 ] && bloqueo=sistema
-  if [ -z "$bloqueo" ] && v="$(leer_sysctl kernel/apparmor_restrict_unprivileged_userns)" && [ "$v" = 1 ]; then
-    if perfil_apparmor_para "$bin"; then
-      bien "$que: AppArmor restringe los espacios de nombres de usuario, pero hay un perfil que se lo permite a esta ventana"
-      if escribible "$bin"; then
-        detalle "Ojo: tu usuario puede cambiar ese binario, así que el perfil debilita la restricción para cualquier programa tuyo."
-        consejo_ayudante "Es preferible" "$cs"
-      fi
-      return 0
-    fi
-    bloqueo=apparmor
-  fi
+  if [ -z "$bloqueo" ] && v="$(leer_sysctl kernel/apparmor_restrict_unprivileged_userns)" && [ "$v" = 1 ]; then bloqueo=apparmor; fi
   if [ -z "$bloqueo" ]; then bien "$que: el sistema permite los espacios de nombres de usuario"; return 0; fi
   if [ "$bloqueo" = apparmor ]; then
     mal "$que: AppArmor no deja a Electron crear espacios de nombres de usuario (Ubuntu 23.10 o posterior)"
@@ -199,6 +163,7 @@ comprobar_sandbox() {
     mal "$que: este sistema no permite crear espacios de nombres de usuario sin privilegios"
   fi
   consejo_ayudante "Solución:" "$cs"
+  if [ "$bloqueo" = apparmor ]; then detalle "Si ya creaste un perfil de AppArmor para esta ventana y la ventana abre, puedes ignorar este punto."; fi
 }
 
 # Pista de gráfica: Electron dibuja con la GPU. WebGL2 lo comprueba la propia pantalla del juego
