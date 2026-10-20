@@ -8,13 +8,17 @@ const os = require('node:os');
 const path = require('node:path');
 const plataforma = require('./plataforma.cjs');
 app.setName('work-shelter-public');
+// en Linux, app_id (Wayland) y WM_CLASS (X11) = el .desktop del menú, para que el escritorio la reconozca con su icono
+if (plataforma.nombreEscritorio()) app.setDesktopName(plataforma.nombreEscritorio());
 // depuración remota (QA por CDP): solo en desarrollo, con SHELTER_DEV=1 además del puerto; abierta, cualquier proceso
 // del equipo podría manejar la ventana del juego
 if (process.env.SHELTER_CDP && process.env.SHELTER_DEV === '1') app.commandLine.appendSwitch('remote-debugging-port', process.env.SHELTER_CDP);
 // la dirección lleva el secreto del arranque: se guarda y se quita del entorno (que no la hereden los Chrome que se lanzan)
 const URL_INICIAL = process.env.SHELTER_URL; delete process.env.SHELTER_URL;
 const desdeApp = !URL_INICIAL && !!process.env.SHELTER_RAIZ;
-if (desdeApp && !app.requestSingleInstanceLock()) app.exit(0);
+// una sola ventana del juego (por carpeta de datos de Electron: una de QA con su --user-data-dir va aparte): la segunda
+// avisa a la primera, que se pone al frente, y se cierra
+if (!app.requestSingleInstanceLock()) app.exit(0);
 let ventana, origen, servidor;
 // huella de lo que solo se lee al abrir la app (este archivo, la precarga de Spotify, el supervisor, ./shelter): va al
 // servidor, que al reiniciar la compara con la de ahora y, si ha cambiado, pide volver a abrir la app entera (código 76)
@@ -298,8 +302,10 @@ app.whenReady().then(cacheLimpia).then(() => {
   session.defaultSession.setPermissionRequestHandler((wc, permiso, ok, detalles) => ok(permisoDelJuego(wc, permiso, detalles?.requestingUrl ?? wc?.getURL(), detalles)));
   session.defaultSession.setPermissionCheckHandler((wc, permiso, origenPide, detalles) => permisoDelJuego(wc, permiso, origenPide || wc?.getURL(), detalles));
   crear();
-  // puede no haber atajos globales (en Wayland sin el portal de atajos globales, o la tiene otra app): queda la del menú
-  if (!globalShortcut.register(PANICO, panico)) {
+  // para todo el sistema solo donde se puede sin preguntar (plataforma.panicoGlobal); si no, o si la tiene otra app,
+  // queda la del menú, dentro de la ventana
+  if (!plataforma.panicoGlobal()) ponerMenu(true);
+  else if (!globalShortcut.register(PANICO, panico)) {
     console.error(`No he podido registrar la tecla de pánico (${PANICO}) para todo el sistema: la tiene otra app o el sistema no lo permite. Dentro de la ventana sigue funcionando.`);
     ponerMenu(true);
   }
@@ -307,8 +313,14 @@ app.whenReady().then(cacheLimpia).then(() => {
   ventana.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(ARRANQUE));
   arrancar();
 });
-// otro clic en el Dock con la app abierta: al frente
-app.on('second-instance', () => { if (!ventana) return; if (escondido) { volver(); return; } if (ventana.isMinimized()) ventana.restore(); ventana.focus(); });
+// otro arranque con la ventana abierta (otro clic en el Dock o en el menú, otro ./shelter): solo la trae al frente. Nunca
+// la cambia de servidor: la app no se abre dos veces y un segundo arranque no puede llevarse la ventana a otro sitio
+app.on('second-instance', () => {
+  if (!ventana || ventana.isDestroyed()) return;
+  if (escondido) { volver(); return; }
+  if (ventana.isMinimized()) ventana.restore();
+  ventana.show(); ventana.focus();
+});
 // escondida por la tecla de pánico: un clic en el Dock o abrir la app la trae de vuelta
 app.on('activate', () => { if (escondido) volver(); });
 app.on('window-all-closed', () => app.quit());

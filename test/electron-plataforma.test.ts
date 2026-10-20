@@ -16,8 +16,10 @@ const p = createRequire(import.meta.url)('../electron/plataforma.cjs') as {
   teclasReenviadas(entrada: Entrada): { code?: string; key?: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean };
   PANICO: string;
   panicoSacaASuperficie(plataforma: string): boolean;
+  panicoGlobal(plataforma: string): boolean;
   etiquetaPanico(plataforma: string): string;
   esEnlaceExterno(url: unknown): boolean;
+  nombreEscritorio(plataforma: string): string | null;
 };
 
 describe('carpetaRegistros', () => {
@@ -135,6 +137,10 @@ describe('PANICO', () => {
   it('Command en macOS (⇧⌥⌘Esc, como siempre) y Control en Linux, por CommandOrControl', () => {
     expect(p.PANICO).toBe('Shift+Alt+CommandOrControl+Escape');
   });
+  it('solo en macOS se registra para todo el sistema; en Linux, solo dentro de la ventana (sin pedir permiso al escritorio)', () => {
+    expect(p.panicoGlobal('darwin')).toBe(true);
+    expect(p.panicoGlobal('linux')).toBe(false);
+  });
 });
 
 describe('esEnlaceExterno', () => {
@@ -154,5 +160,34 @@ describe('tecla de pánico', () => {
   it('en Linux solo esconde el juego: salir a la superficie aún no está', () => {
     expect(p.panicoSacaASuperficie('linux')).toBe(false);
     expect(p.etiquetaPanico('linux')).toBe('Esconder el juego');
+  });
+});
+
+describe('nombreEscritorio (la identidad de la ventana en Linux)', () => {
+  it('en Linux, el .desktop del menú: Electron lo usa como app_id en Wayland y WM_CLASS en X11', () => {
+    expect(p.nombreEscritorio('linux')).toBe('work-shelter-public.desktop');
+  });
+  it('en macOS no hay (la identidad la da la app)', () => {
+    expect(p.nombreEscritorio('darwin')).toBeNull();
+  });
+});
+
+describe('una sola ventana (requestSingleInstanceLock)', () => {
+  it('electron/main.cjs pide el cerrojo siempre (no solo desde la app) y atiende a la segunda', async () => {
+    const { readFileSync } = await import('node:fs');
+    const t = readFileSync(new URL('../electron/main.cjs', import.meta.url), 'utf8');
+    expect(t).toMatch(/^if \(!app\.requestSingleInstanceLock\(/m);
+    expect(t).not.toMatch(/desdeApp && !app\.requestSingleInstanceLock/);
+    expect(t).toContain("app.on('second-instance'");
+  });
+  it('la segunda solo trae al frente la ventana que ya está: no le pasa ninguna dirección ni la cambia de servidor', async () => {
+    const { readFileSync } = await import('node:fs');
+    const t = readFileSync(new URL('../electron/main.cjs', import.meta.url), 'utf8');
+    expect(t).toMatch(/^if \(!app\.requestSingleInstanceLock\(\)\) app\.exit\(0\);$/m);
+    const i = t.indexOf("app.on('second-instance'");
+    const cuerpo = t.slice(i, t.indexOf('\n});', i));
+    expect(cuerpo).not.toMatch(/abrir\(|loadURL|datos/);
+    expect(cuerpo).toContain('ventana.focus()');
+    expect(t).not.toContain('urlDelServidorLocal');
   });
 });

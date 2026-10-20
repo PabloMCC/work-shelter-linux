@@ -1,7 +1,7 @@
 // Atajos del refugio (teclas.ts): la comprobación y las etiquetas, en macOS y en Linux en cualquier equipo (la plataforma
 // va como opción). Las pruebas corren en Node, sin KeyboardEvent: basta un objeto con su forma.
 import { describe, it, expect, vi } from 'vitest';
-import { ATAJOS, esAtajo, etiquetaAtajo, atajoNavegador, teclasDeElectron } from './teclas';
+import { ATAJOS, esAtajo, etiquetaAtajo, etiquetasAyuda, atajoNavegador, teclasDeElectron } from './teclas';
 import { atajoVentana, type AccionesVentana } from './ventanas';
 
 type Mods = { meta?: boolean; ctrl?: boolean; shift?: boolean; alt?: boolean };
@@ -78,6 +78,32 @@ describe('etiquetaAtajo', () => {
     }
     expect(etiquetaAtajo('KeyW', { mac: false, clase: 'refugio' })).toBe('Ctrl+Mayús+W');
     expect(etiquetaAtajo('KeyR', { mac: false, mayusExtra: true })).toBe('Ctrl+Mayús+R');
+  });
+});
+
+describe('etiquetasAyuda (la ayuda F1: ventanas, escribir, git y pánico)', () => {
+  it('en macOS, las de siempre', () => {
+    expect(etiquetasAyuda(true)).toEqual({
+      buscador: '⌘K', musica: '⌘J', barra: '⌘B', minimizar: '⌘M', pestanaNueva: '⌘T', cerrar: '⌘W / ⌘⇧W', pestanas: '⌘1…⌘9, ⌃Tab',
+      ampliar: '⌘↑', abajo: '⌘↓', sacar: '⌘⇧E', dictar: '⌘D', adjuntar: '⌘U', commit: '⌘Intro', vistasGit: '⌘1…⌘4', panico: '⇧⌥⌘Esc', mayus: '⇧',
+    });
+  });
+  it('en Linux, sin ⌘: Ctrl+Mayús las de ventana y Ctrl solo las de escribir', () => {
+    const t = etiquetasAyuda(false);
+    expect(t).toEqual({
+      buscador: 'Ctrl+Mayús+K', musica: 'Ctrl+Mayús+J', barra: 'Ctrl+Mayús+B', minimizar: 'Ctrl+Mayús+M', pestanaNueva: 'Ctrl+Mayús+T', cerrar: 'Ctrl+Mayús+W',
+      pestanas: 'Ctrl+Mayús+1…9, Ctrl+Tab', ampliar: 'Ctrl+Mayús+↑', abajo: 'Ctrl+Mayús+↓', sacar: 'Ctrl+Mayús+E', dictar: 'Ctrl+D', adjuntar: 'Ctrl+U',
+      commit: 'Ctrl+Intro', vistasGit: 'Ctrl+Mayús+1…4', panico: 'Ctrl+Mayús+Alt+Esc', mayus: 'Mayús+',
+    });
+    for (const v of Object.values(t)) expect(v).not.toMatch(/[⌘⇧⌥⌃]/);
+  });
+  it('en Linux, las de ventana son las que atiende atajoVentana', () => {
+    const a = acciones(), linux = { mac: false };
+    expect(atajoVentana(tecla('KeyT', { ctrl: true, shift: true }), { ...a, nuevaPestana: vi.fn() }, linux)).toBe(true);
+    expect(atajoVentana(tecla('Digit9', { ctrl: true, shift: true }), a, linux)).toBe(true);
+    expect(atajoVentana(tecla('KeyE', { ctrl: true, shift: true }), { ...a, sacar: vi.fn() }, linux)).toBe(true);
+    expect(atajoVentana({ ...ev('ArrowUp', { ctrl: true, shift: true }), key: 'ArrowUp' } as unknown as KeyboardEvent, a, linux)).toBe(true);
+    expect(atajoVentana(tecla('KeyT', { meta: true }), { ...a, nuevaPestana: vi.fn() }, linux)).toBe(false);
   });
 });
 

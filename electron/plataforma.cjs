@@ -62,6 +62,9 @@ const teclasReenviadas = k => ({ code: k.code, key: k.key, shiftKey: !!k.shift, 
 
 // salir a la superficie: ⇧⌥⌘Esc en macOS, Mayús+Alt+Ctrl+Esc en Linux
 const PANICO = 'Shift+Alt+CommandOrControl+Escape';
+// para todo el sistema solo en macOS: en Linux con Wayland, registrarla abre el diálogo de atajos globales del escritorio
+// sin nombre ni tecla útiles; ahí funciona dentro de la ventana (por el menú)
+const panicoGlobal = (p = process.platform) => p === 'darwin';
 // en macOS esconde el juego y saca lo abierto a la superficie (iTerm o Terminal); en Linux eso aún no está y la tecla
 // solo lo esconde (lo abierto sigue en el juego)
 const panicoSacaASuperficie = (plataforma = process.platform) => plataforma === 'darwin';
@@ -74,4 +77,10 @@ function esEnlaceExterno(u) {
   try { return EXTERNOS.includes(new URL(u).protocol); } catch { return false; }
 }
 
-module.exports = { carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };
+// la identidad de la ventana en Linux: el nombre del .desktop del menú (scripts/instalar-app-linux.mjs y `desktopName` de
+// package.json). Electron lo usa como app_id en Wayland y como WM_CLASS en X11, y así el escritorio le pone su icono y la
+// agrupa con su entrada. Lanzado como `electron electron/main.cjs` no lee el package.json del repo (se quedaría con el
+// de Electron), así que main.cjs lo fija. En macOS no hace falta: la identidad la da la app
+const nombreEscritorio = (plataforma = process.platform) => (plataforma === 'linux' ? `${NOMBRE}.desktop` : null);
+
+module.exports = { nombreEscritorio, carpetaRegistros, shellDeUsuario, rutasExtra, atajoWebview, ATAJOS, atajoNavegador, REENVIADAS, teclasReenviadas, PANICO, panicoGlobal, panicoSacaASuperficie, etiquetaPanico, esEnlaceExterno };

@@ -59,12 +59,21 @@ abrir_url() {
   echo "No he podido abrir el navegador. Abre a mano: $1"
 }
 
-# ./shelter instalar-app solo crea la app de macOS: en otro sistema lo dice y sale con 1, antes de preparar nada
-instalar_app_disponible() {
+# ./shelter instalar-app: la app de macOS o el acceso en el menú de Linux. En otro sistema lo dice so_node y sale con 1,
+# antes de preparar nada
+instalar_app_disponible() { so_node >/dev/null; }
+
+# El instalador de cada sistema (relativo a la raíz del repo): instalar-app.mjs en macOS, instalar-app-linux.mjs en Linux
+instalador_app() {
   local so; so="$(so_node)" || return 1
-  [ "$so" = darwin ] && return 0
-  echo "El acceso en el menú de aplicaciones aún no está disponible en este sistema (instalar-app solo crea la app de macOS)." >&2
-  echo "  Mientras tanto, abre work-shelter desde una terminal en esta carpeta con: ./shelter" >&2
+  if [ "$so" = darwin ]; then echo scripts/instalar-app.mjs; else echo scripts/instalar-app-linux.mjs; fi
+}
+
+# ./shelter desinstalar-app quita el acceso en el menú de Linux; en macOS la app se borra como cualquier otra
+desinstalar_app_disponible() {
+  local so; so="$(so_node)" || return 1
+  [ "$so" = linux ] && return 0
+  echo "desinstalar-app solo se usa en Linux. En macOS, arrastra /Applications/work-shelter-public.app a la papelera." >&2
   return 1
 }
 
@@ -79,9 +88,117 @@ carpeta_registros() {
   esac
 }
 
+# Abierto desde el menú (SHELTER_DESDE_MENU) no hay terminal: lo que escribe ./shelter, errores incluidos, va desde aquí
+# a shelter.log, en la carpeta de los registros (carpeta y archivos solo legibles por ti). registro_desde_menu [nuevo]:
+# - sin nada, se añade al final: un arranque que solo trae al frente la ventana, o que espera al cerrojo, no toca lo que
+#   va escribiendo el refugio ya abierto
+# - con «nuevo» (solo el arranque que va a abrir el servidor, justo antes): el anterior pasa a shelter.log.1 y se empieza
+#   otro, así que no crece sin fin. Lo ya escrito por este arranque queda en el anterior
+# Si no se puede preparar, devuelve 1 y la salida se queda donde estaba
+registro_desde_menu() {
+  local log; log="$(carpeta_registros)/shelter.log" || return 1
+  (
+    umask 077
+    mkdir -p "${log%/*}" || exit 1
+    # rotar: el anterior a shelter.log.1, cerrado a 600 aunque viniera con otros permisos
+    if [ "${1:-}" = nuevo ] && [ -e "$log" ]; then mv -f "$log" "$log.1" && chmod 600 "$log.1" || exit 1; fi
+    # el que se usa: se crea si no está y queda a 600
+    : >> "$log" && chmod 600 "$log"
+  ) 2>/dev/null || return 1
+  # siempre añadiendo: tras rotar, la salida deja el archivo apartado y pasa al nuevo
+  exec >>"$log" 2>&1
+  echo "== $(date '+%Y-%m-%d %H:%M:%S') · abierto desde el menú${1:+ · este arranque abre el refugio} =="
+}
+
+# Cerrojo del lanzador: dos ./shelter a la vez (un doble clic en el menú) no pueden preparar lo mismo a la vez (npm ci,
+# Electron, el material, la compilación, el servidor) o se pisan en node_modules. Es una carpeta (mkdir es atómico en
+# macOS y en Linux, que no traen el mismo flock) con el pid del dueño dentro. tomar_cerrojo <carpeta> [segundos]: espera
+# como mucho esos segundos (SHELTER_ESPERA_CERROJO, 120 por omisión) avisando una vez; si el dueño ya no vive, el
+# cerrojo se recupera. Nunca se quita uno cuyo dueño sigue vivo. Recuperarlo pasa por un segundo cerrojo (<carpeta>.romper,
+# también con el pid de su dueño y recuperable con la misma regla, por si un SIGKILL lo deja puesto) para que dos que
+# esperan no se lo quiten el uno al otro. soltar_cerrojo lo quita solo si es suyo
+CERROJO_LANZADOR=""
+# 5 s a 0,2 s por vuelta: una carpeta de cerrojo sin pid más tiempo que eso es de un dueño que murió entre crearla y
+# escribirlo
+VUELTAS_SIN_PID=25
+pid_de_cerrojo() { local pid=""; { read -r pid < "$1/pid"; } 2>/dev/null || true; [ -n "$pid" ] || return 1; echo "$pid"; }
+# ¿Sigue vivo el dueño? 0 sí, 1 no; sin pid (lo está creando) cuenta como vivo
+dueno_vivo() { local pid; pid="$(pid_de_cerrojo "$1")" || return 0; kill -0 "$pid" 2>/dev/null; }
+# ¿Está abandonado? cerrojo_abandonado <carpeta> <vueltas sin pid>: su dueño murió o lleva demasiado sin pid
+cerrojo_abandonado() { ! dueno_vivo "$1" || [ "$2" -gt "$VUELTAS_SIN_PID" ]; }
+tomar_cerrojo() {
+  local d="$1" romper="$1.romper" max="${2:-${SHELTER_ESPERA_CERROJO:-120}}" vueltas=0 avisado="" sin_pid=0 sin_pid_romper=0 ok
+  mkdir -p "${d%/*}" 2>/dev/null || true
+  while :; do
+    if mkdir "$d" 2>/dev/null; then echo "$$" > "$d/pid"; CERROJO_LANZADOR="$d"; return 0; fi
+    if pid_de_cerrojo "$d" >/dev/null; then sin_pid=0; else sin_pid=$((sin_pid + 1)); fi
+    if [ -d "$romper" ] && ! pid_de_cerrojo "$romper" >/dev/null; then sin_pid_romper=$((sin_pid_romper + 1)); else sin_pid_romper=0; fi
+    # un .romper abandonado (su dueño murió dentro de la recuperación) bloquearía todos los arranques para siempre
+    if [ -d "$romper" ] && cerrojo_abandonado "$romper" "$sin_pid_romper"; then rm -rf "$romper"; sin_pid_romper=0; fi
+    if cerrojo_abandonado "$d" "$sin_pid" && mkdir "$romper" 2>/dev/null; then
+      echo "$$" > "$romper/pid"
+      if cerrojo_abandonado "$d" "$sin_pid"; then rm -rf "$d"; fi
+      ok=1; mkdir "$d" 2>/dev/null && { echo "$$" > "$d/pid"; CERROJO_LANZADOR="$d"; ok=0; }
+      rm -rf "$romper"
+      [ "$ok" = 0 ] && return 0
+      sin_pid=0; continue
+    fi
+    # vueltas de 0,2 s (SECONDS solo cuenta segundos enteros y se adelantaría hasta uno)
+    if [ "$vueltas" -ge $((max * 5)) ]; then
+      printf 'Otro arranque de work-shelter (pid %s) sigue preparándolo después de %s s: no lo toco.\n' "$(pid_de_cerrojo "$d" || echo '?')" "$max" >&2
+      return 1
+    fi
+    [ -n "$avisado" ] || { avisado=1; echo "Otro arranque de work-shelter está preparándolo: espero a que termine…" >&2; }
+    sleep 0.2; vueltas=$((vueltas + 1))
+  done
+}
+soltar_cerrojo() {
+  [ -n "$CERROJO_LANZADOR" ] || return 0
+  [ "$(pid_de_cerrojo "$CERROJO_LANZADOR" 2>/dev/null)" = "$$" ] && rm -rf "$CERROJO_LANZADOR"
+  CERROJO_LANZADOR=""
+}
+
 # Ruta del binario de Electron según su propio paquete (Electron.app/Contents/MacOS/Electron en macOS, dist/electron en
 # Linux) con el Node que se le pase; vacía si aún no está descargado
 electron_binario() { "$1" -p "require('electron')" 2>/dev/null || true; }
+
+# El binario de Electron si ya está descargado, sin Node y sin descargar nada (require('electron') lo descargaría si
+# falta): node_modules/electron/dist/<path.txt>, como lo resuelve su propio paquete. Falla si no está o no se puede ejecutar
+electron_ya_descargado() {
+  local e="$1/node_modules/electron" p=""
+  { read -r p < "$e/path.txt"; } 2>/dev/null || true
+  [ -n "$p" ] && [ -x "$e/dist/$p" ] || return 1
+  echo "$e/dist/$p"
+}
+
+# ./shelter no ha conseguido el cerrojo (otro arranque sigue preparando después de la espera): aquí nunca se prepara nada
+# (ni Node, ni npm ci, ni Electron, ni el material, ni la compilación), que sería pisar al otro. ya_abierto_sin_cerrojo
+# <raíz> <puerto> <datos>. Dos caminos:
+# - Un servidor contesta /salud: el refugio ya está abierto. Desde la app de macOS se le pasa su dirección (la línea
+#   SHELTER_URL); si no, se lanza el Electron ya descargado, si lo está, y su cerrojo de una sola ventana
+#   (requestSingleInstanceLock en electron/main.cjs) trae al frente la que ya está. Su salida se añade a electron.log
+#   con ventana_electron, como la de la ventana normal, sin vaciarlo (es el de la ventana abierta); si no se puede, se
+#   queda en la de aquí. Si ninguna ventana tiene ese cerrojo (un servidor sin ventana, SHELTER_SIN_VENTANA), este
+#   Electron pasa a ser la ventana y aquí se espera a que se cierre: es lo buscado. Devuelve 0.
+# - Nadie contesta: el otro aún no tiene el servidor en marcha. Lo dice y devuelve 1, para volver a intentarlo luego
+ya_abierto_sin_cerrojo() {
+  local raiz="$1" puerto="$2" datos="$3" token="" url bin log
+  if ! curl -fs "http://127.0.0.1:$puerto/salud" >/dev/null 2>&1; then
+    echo "Otro arranque de work-shelter sigue preparándolo y aún no ha abierto el refugio. Vuelve a intentarlo dentro de un momento." >&2
+    return 1
+  fi
+  { read -r token < "$datos/token"; } 2>/dev/null || true
+  url="http://127.0.0.1:$puerto/#t=$token"
+  if [ -n "${SHELTER_DESDE_APP:-}" ]; then echo "SHELTER_URL=$url"; return 0; fi
+  if [ -z "${SHELTER_SIN_VENTANA:-}" ] && bin="$(electron_ya_descargado "$raiz")"; then
+    echo "Ya hay un work-shelter abierto en el puerto $puerto: traigo su ventana al frente."
+    log="$(carpeta_registros)/electron.log" && ( umask 077; mkdir -p "${log%/*}" && : >> "$log" ) 2>/dev/null || log=""
+    ( cd "$raiz" && SHELTER_URL="$url" ventana_electron "$bin" "$log" electron/main.cjs ) || true
+  else
+    echo "Ya hay un work-shelter abierto: http://127.0.0.1:$puerto"
+  fi
+  return 0
+}
 
 # ¿Dice el registro que Chromium no ha podido aislarse? Pasa con chrome-sandbox sin SUID de root y los espacios de nombres
 # de usuario bloqueados (Ubuntu 23.10+ con AppArmor, por ejemplo)
@@ -99,7 +216,7 @@ ventana_electron() {
   printf 'La ventana del juego (Electron) se ha cerrado con un error (código %s).%s\n' "$codigo" "${log:+ Registro: $log}" >&2
   [ $((SECONDS - inicio)) -ge "${MARGEN_ELECTRON:-10}" ] && return 0
   if [ -n "$log" ] && registro_pide_sandbox "$log"; then
-    echo "  Este sistema no deja a Electron usar su aislamiento (sandbox), que protege del contenido web: el diagnóstico de work-shelter explica cómo permitirlo de forma segura." >&2
+    echo "  Este sistema no deja a Electron usar su aislamiento (sandbox), que protege del contenido web: el diagnóstico (./shelter doctor) explica cómo permitirlo de forma segura." >&2
   fi
   return 1
 }

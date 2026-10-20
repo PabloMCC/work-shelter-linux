@@ -57,7 +57,8 @@ no hay soporte**. No es nada personal, es la única forma de compartirlo sin que
 lo mejoras, publícalo en tu fork y cuéntalo por ahí para que otros lo encuentren: será un placer que circule.
 
 > **En este fork:** lo de arriba es la política del autor original para su proyecto. La de este fork se definirá más
-> adelante; mientras tanto, no lleves al repositorio original nada que tenga que ver con este fork.
+> adelante; mientras tanto, no lleves al repositorio original nada que tenga que ver con este fork. Los avisos de
+> seguridad de este fork van en privado a este repositorio: ver [`SECURITY.md`](SECURITY.md#cómo-avisar-de-un-problema).
 
 ### Lo que está a medias
 
@@ -83,10 +84,11 @@ estado `jugador` del refugio.
 Y en Linux, de momento:
 
 - **Solo en macOS por ahora**: salir a la superficie, el dictado por voz y Spotify en la Discoteca. En Linux se ven
-  apagados y, al pulsarlos, avisan de que aún no están; el resto del juego no depende de ellos. La tecla de pánico
-  (Mayús+Alt+Ctrl+Esc) solo esconde la ventana del juego.
-- **Sin acceso en el menú de aplicaciones** todavía: `./shelter instalar-app` lo dice y sale sin tocar nada. El juego
-  se abre con `./shelter` desde una terminal en su carpeta.
+  apagados y, al pulsarlos, avisan de que aún no están; el resto del juego no depende de ellos.
+- **La tecla de pánico** (Ctrl+Mayús+Alt+Esc) solo esconde la ventana del juego, y solo con ella delante: en Linux aún
+  no se registra un atajo para todo el sistema. Vuelve al abrir la app otra vez (desde el menú o con `./shelter`).
+- **El acceso en el menú de aplicaciones** (`./shelter instalar-app`) sigue las especificaciones de freedesktop y pasa
+  `desktop-file-validate`; se ha probado a mano en KDE Plasma, aún no en GNOME ni en otros escritorios.
 - **Probado de punta a punta en un escritorio Arch** (CachyOS, KDE Plasma sobre Wayland, gráfica NVIDIA). Las pruebas
   automáticas pasan en Ubuntu y en macOS, pero el juego aún no se ha probado entero en un escritorio Ubuntu o Fedora:
   debería ir, sin garantía.
@@ -131,7 +133,9 @@ En los dos sistemas:
 **macOS** (Apple Silicon o Intel). El dictado por voz necesita macOS 26; todo lo demás, cualquier macOS reciente.
 Opcional: iTerm (para «salir a la superficie»; si no está, se usa Terminal).
 
-**Linux** (x64 o arm64), con un escritorio gráfico, `git`, `curl` y bash. Además:
+**Linux** (x64 o arm64), con un escritorio gráfico, `git`, `curl` y bash. `./shelter doctor` lo comprueba todo (lo
+obligatorio y lo opcional de abajo, el aislamiento de la ventana y la gráfica) sin instalar nada, y escribe la orden de
+pacman, apt o dnf para lo que falte: es lo primero que conviene mirar si algo no está. Además:
 
 | Para qué | Qué hace falta | Debian y Ubuntu | Fedora | Arch |
 |---|---|---|---|---|
@@ -147,18 +151,27 @@ Las dos filas son opcionales: el juego arranca sin ellas. Abrir enlaces y carpet
 
 ```bash
 git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd work-shelter
+./shelter doctor          # comprueba lo que hace falta y dice cómo instalarlo (no instala nada)
 ./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
 ```
 
 La primera vez tarda unos minutos: usa tu Node 22 o, si no hay, descarga el oficial y comprueba su suma; instala las
 dependencias (`npm ci`) y la ventana del juego (Electron); descarga el material artístico CC0 y compila la interfaz.
 Las siguientes, abre en segundos. Todo queda dentro de la carpeta del juego y de las de datos (ver [Datos](#datos)):
-no pide contraseña ni instala nada en el sistema. Aún no hay acceso en el menú de aplicaciones: se abre siempre con
-`./shelter` desde esa carpeta.
+no pide contraseña ni instala nada en el sistema.
+
+**Acceso en el menú:** `./shelter instalar-app` prepara lo mismo que el arranque y añade work-shelter al menú de
+aplicaciones (en Desarrollo), con su icono, solo para tu usuario y sin sudo: una entrada en
+`${XDG_DATA_HOME:-~/.local/share}/applications/work-shelter-public.desktop` y el icono en
+`icons/hicolor/<tamaño>/apps/` de esa misma carpeta. Abre `./shelter` de esta carpeta sin terminal: lo que escribiría
+va a `shelter.log`, en `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/` (cada arranque empieza uno nuevo;
+el anterior queda en `shelter.log.1`). Si ya está abierto, trae su ventana al frente; dos clics seguidos no lo preparan
+dos veces. Si mueves la carpeta del juego, repítelo. Para quitarlo:
+`./shelter desinstalar-app` (borra solo esa entrada y sus iconos).
 
 **Poner al día:** `git pull` en la carpeta y `./shelter` (si cambian las dependencias, las reinstala solo).
 
-**Desinstalar:** borra la carpeta del juego (con ella, el estado del refugio), `~/.local/share/work-shelter-public`
+**Desinstalar:** `./shelter desinstalar-app` si pusiste el acceso en el menú; luego borra la carpeta del juego (con ella, el estado del refugio), `~/.local/share/work-shelter-public`
 (repos de ejemplo y carpetas de las salas especiales), `~/.config/work-shelter-public` (sesiones de los navegadores)
 y `~/.local/state/work-shelter-public` (registro de la ventana); si tienes puestas las variables `XDG_DATA_HOME`,
 `XDG_CONFIG_HOME` o `XDG_STATE_HOME`, están ahí en vez de en `~/.local/share`, `~/.config` y `~/.local/state`. Las
@@ -207,7 +220,7 @@ Si vas a cambiar el juego, puedes tenerlo donde quieras (en Linux es la instalac
 ```bash
 git clone https://github.com/PabloMCC/work-shelter-linux.git work-shelter && cd work-shelter
 ./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
-./shelter instalar-app    # solo macOS: crea la app de Aplicaciones apuntando a esta carpeta (--sin-dock para no tocar el Dock)
+./shelter instalar-app    # macOS: la app de Aplicaciones (--sin-dock para no tocar el Dock); Linux: el acceso en el menú
 ```
 
 Si la ventana del juego no llega a abrirse, `./shelter` abre el juego en tu navegador y te dice dónde está el
@@ -285,7 +298,7 @@ Atajos con ⌘ en macOS y su equivalente en Linux:
 | ⌘M o ⌘↓ · ⌘↑ · ⌘1…⌘9 | Ctrl+Mayús+M o ↓ · ↑ · 1…9 | minimizar a la barra · pantalla completa · ir a una pestaña |
 | ⌃Tab | Ctrl+Tab | cambiar de pestaña |
 | ⌘W · ⌘R · ⌘[ ⌘] · ⌘+ ⌘- ⌘0 | Ctrl+W · R · [ ] · + - 0 | dentro de un navegador del refugio: cerrar, recargar, atrás y adelante, zoom |
-| ⌘⇧E · ⇧⌥⌘Esc | (no hay) · Mayús+Alt+Ctrl+Esc | salir a la superficie: una pestaña · todo (en Linux aún no hay superficie y la tecla de pánico solo esconde la ventana) |
+| ⌘⇧E · ⇧⌥⌘Esc | (no hay) · Ctrl+Mayús+Alt+Esc | salir a la superficie: una pestaña · todo (en Linux aún no hay superficie; la tecla de pánico solo esconde la ventana, y solo con ella delante) |
 
 En Linux los del refugio llevan Ctrl+Mayús porque Ctrl+K, Ctrl+B o Ctrl+W ya los usan las webs y las terminales.
 
@@ -417,15 +430,23 @@ son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de C
 
 ## Solución de problemas
 
+- **Falta algo o no arranca** (Linux). Empieza por `./shelter doctor`: dice qué falta y cómo instalarlo.
 - **«No encuentro Claude Code».** Instálalo y entra con tu cuenta. Después vuelve a abrir work-shelter.
-- **El puerto 3778 está ocupado.** Puede que ya haya otro work-shelter abierto. Ciérralo o arranca con
-  `SHELTER_PUERTO=3779 ./shelter`.
+- **No se abre una segunda ventana.** Es a propósito: si el juego ya está abierto, abrirlo otra vez (desde el menú, el
+  Dock o `./shelter`) trae al frente la ventana que hay.
+- **«Otro arranque de work-shelter sigue preparándolo… Vuelve a intentarlo dentro de un momento».** Lo abriste dos
+  veces seguidas y el primero aún prepara (la primera vez puede tardar minutos). El segundo espera hasta dos minutos y
+  después se retira sin tocar nada; cuando el primero termine, se abrirá su ventana.
+- **El puerto 3778 está ocupado** por otro programa. Ciérralo o arranca con `SHELTER_PUERTO=3779 ./shelter`.
 - **La ventana del juego no se abre y se abre el navegador** (sobre todo en Linux). `./shelter` lo avisa en la
   terminal y guarda lo que dijo Electron en `electron.log` (`~/Library/Logs/work-shelter-public/` en macOS;
   `${XDG_STATE_HOME:-~/.local/state}/work-shelter-public/` en Linux). Si el sistema no deja a Electron usar su
   aislamiento (sandbox), lo dice también: pasa, por ejemplo, en Ubuntu 23.10 y posteriores, que con AppArmor limitan
-  los espacios de nombres de usuario. El diagnóstico que explica cómo permitirlo de forma segura está por llegar;
-  mientras tanto el juego funciona igual en el navegador. No arranques Electron con `--no-sandbox`.
+  los espacios de nombres de usuario. `./shelter doctor` lo comprueba y da la solución segura: el ayudante
+  `chrome-sandbox` de Electron, de root y con modo 4755 (tu usuario no puede crear un archivo SUID de root, por eso
+  nada tuyo puede aprovecharlo). Hay que repetirlo cada vez que se reinstala Electron. Si ya creaste un perfil de AppArmor
+  para la ventana y abre, `./shelter doctor` lo seguirá marcando con ✗: puedes ignorarlo. Hasta que lo arregles, el juego
+  se abre en el navegador y funciona igual. No arranques Electron con `--no-sandbox`.
 - **«Sin gráficos 3D».** El equipo no da WebGL2 al juego: faltan o están anticuados los controladores de la gráfica,
   la aceleración por hardware está apagada, o es una máquina virtual o un escritorio remoto. La pantalla dice qué
   hacer.

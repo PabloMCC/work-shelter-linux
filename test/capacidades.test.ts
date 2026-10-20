@@ -10,7 +10,11 @@ import path from 'node:path';
 import WebSocket from 'ws';
 import { AVISOS_CAPACIDAD, capacidadesDe } from '../shared/protocolo.ts';
 
-const PUERTO = 3900 + Math.floor(Math.random() * 30);   // otro rango que los demás tests del servidor: corren a la vez
+// los tests del servidor corren a la vez y cada archivo usa su propio rango de puertos, que no comparte con ningún otro.
+// Este usa 3900 a 3959: la primera mitad para el servidor común y la segunda (PUERTO + RANGO_PUERTOS) para el que se cae
+// sin clientes, así los dos nunca chocan
+const RANGO_PUERTOS = 30;
+const PUERTO = 3900 + Math.floor(Math.random() * RANGO_PUERTOS);
 const DATOS = mkdtempSync(path.join(tmpdir(), 'refugio-capac-'));
 const CONFIG = mkdtempSync(path.join(tmpdir(), 'refugio-capac-config-'));
 const SALA = mkdtempSync(path.join(tmpdir(), 'refugio-capac-sala-'));
@@ -89,7 +93,7 @@ describe('el juego se cae (sin clientes) sin salir a la superficie', () => {
     const escritorio = path.join(datos, 'escritorio.jsonl');
     // con todo lo demás que pide sacarlo a tu escritorio: la ventana del juego (SALIR_SIN_CLIENTES), el escritorio de
     // prueba con los datos aislados y una conversación viva. Solo falta la capacidad
-    const s = await arrancar(datos, PUERTO + 30, { SHELTER_ESCRITORIO_PRUEBA: escritorio, SHELTER_SALIR_SIN_CLIENTES: '1', SHELTER_GRACIA_MS: '300' });
+    const s = await arrancar(datos, PUERTO + RANGO_PUERTOS, { SHELTER_ESCRITORIO_PRUEBA: escritorio, SHELTER_SALIR_SIN_CLIENTES: '1', SHELTER_GRACIA_MS: '300' });
     try {
       const c = await conectar(s);
       writeFileSync(path.join(sala, 'CLAUDE.md'), '# Instrucciones de ejemplo\n');
@@ -116,9 +120,9 @@ describe('sin dictado', () => {
     const c = await conectar();
     c.enviar({ t: 'vozEmpezar', id: 'v1', idioma: 'es-ES' });
     expect(await hasta(() => c.recibidos.find(m => m.t === 'voz' && m.id === 'v1'))).toEqual({ t: 'voz', id: 'v1', estado: 'error', texto: AVISOS_CAPACIDAD.dictado });
-    // preparar el transcriptor no deja otra huella que su carpeta: server/voz.ts:23-26 crea DATOS/bin antes de compilar
-    // con swiftc. Fuera de macOS ni llega ahí (voz.ts:21 lanza antes), así que esto solo muerde en el runner de macOS,
-    // que es donde SHELTER_COMO_LINUX tiene que apagarlo
+    // preparar el transcriptor no deja otra huella que su carpeta: transcriptor() de server/voz.ts crea DATOS/bin antes de
+    // compilar con swiftc. Fuera de macOS ni llega ahí (lanza antes, al ver que no es darwin), así que esto solo muerde en
+    // el runner de macOS, que es donde SHELTER_COMO_LINUX tiene que apagarlo
     expect(existsSync(path.join(DATOS, 'bin'))).toBe(false);
     c.ws.close();
   });

@@ -12,6 +12,13 @@ describe('hayWebGL2', () => {
     expect(pedidos).toEqual(['webgl2']);
   });
   it('no, si el lienzo no da contexto', () => expect(hayWebGL2(lienzo(() => null))).toBe(false));
+  it('suelta el contexto de prueba (WEBGL_lose_context), y sigue siendo sí si no se puede soltar', () => {
+    let soltado = 0; const extensiones: string[] = [];
+    expect(hayWebGL2(lienzo(() => ({ getExtension: (n: string) => { extensiones.push(n); return { loseContext: () => { soltado++; } }; } })))).toBe(true);
+    expect(extensiones).toEqual(['WEBGL_lose_context']); expect(soltado).toBe(1);
+    expect(hayWebGL2(lienzo(() => ({ getExtension: () => null })))).toBe(true);
+    expect(hayWebGL2(lienzo(() => ({ getExtension: () => { throw new Error('perdido'); } })))).toBe(true);
+  });
   it('no, si pedirlo falla (o ni siquiera se puede crear el lienzo)', () => {
     expect(hayWebGL2(lienzo(() => { throw new Error('GPU bloqueada'); }))).toBe(false);
     expect(hayWebGL2(() => { throw new Error('sin document'); })).toBe(false);
@@ -27,6 +34,11 @@ describe('textoSinGraficos', () => {
     expect(todo).toMatch(/controladores/i);
     expect(todo).toMatch(/aceleración por hardware/i);
     expect(todo).toMatch(/máquina virtual/i);
+  });
+  it('del diagnóstico de la terminal promete solo lo que comprueba: en Linux, si el sistema ve una tarjeta gráfica', () => {
+    const todo = textoSinGraficos().parrafos.join(' ');
+    expect(todo).toContain('En Linux, ./shelter doctor comprueba si el sistema ve una tarjeta gráfica.');
+    expect(todo).not.toMatch(/también lo comprueba/);
   });
   it('no propone quitar protecciones de la GPU ni del aislamiento', () => {
     const todo = [textoSinGraficos().titulo, ...textoSinGraficos().parrafos].join(' ');

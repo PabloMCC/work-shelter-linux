@@ -39,13 +39,32 @@ export function esAtajo(e: Teclas, code: string, o: Opciones = {}): boolean {
   return o.mayusExtra === undefined || (!mac && clase === 'refugio') || e.shiftKey === o.mayusExtra;
 }
 
-const NOMBRES: Record<string, string> = { BracketLeft: '[', BracketRight: ']', Equal: '+', Minus: '-' };
+const NOMBRES: Record<string, string> = { BracketLeft: '[', BracketRight: ']', Equal: '+', Minus: '-', ArrowUp: '↑', ArrowDown: '↓', Enter: 'Intro' };
 const nombre = (code: string) => NOMBRES[code] ?? code.replace(/^(Key|Digit)/, '');
 /** Cómo se enseña: ⌘K y ⌘⇧W en macOS; Ctrl+Mayús+K y Ctrl+W en Linux. */
 export function etiquetaAtajo(code: string, o: Opciones = {}): string {
   const mac = o.mac ?? MAC, clase = claseDe(code, o);
   if (mac) return '⌘' + (o.mayusExtra ? '⇧' : '') + nombre(code);
   return 'Ctrl+' + (clase === 'refugio' || o.mayusExtra ? 'Mayús+' : '') + nombre(code);
+}
+
+/** Las etiquetas de la ayuda (F1) y de los menús, con las mismas reglas que los manejadores: las de ventana
+ *  (ventanas.tsx, atajoVentana), las de escribir (entrada.tsx: dictar y adjuntar, y el commit del cliente de git, con
+ *  Ctrl solo en Linux) y la de pánico (electron/plataforma.cjs, PANICO; en Linux, solo con la ventana delante). */
+export function etiquetasAyuda(mac = MAC) {
+  const r = (code: string, o: Opciones = {}) => etiquetaAtajo(code, { ...o, mac });
+  const escribir = (code: string) => (mac ? '⌘' : 'Ctrl+') + nombre(code);
+  // ⌘1…⌘9 en macOS; Ctrl+Mayús+1…9 en Linux, que no cabe repetido
+  const rango = (a: string, b: string) => `${r(a)}…${mac ? r(b) : nombre(b)}`;
+  return {
+    buscador: r('KeyK'), musica: r('KeyJ'), barra: r('KeyB'), minimizar: r('KeyM'), pestanaNueva: r('KeyT'),
+    cerrar: mac ? `${r('KeyW')} / ${r('KeyW', { mayusExtra: true })}` : r('KeyW', { clase: 'refugio' }),
+    pestanas: `${rango('Digit1', 'Digit9')}, ${mac ? '⌃' : 'Ctrl+'}Tab`,
+    ampliar: r('ArrowUp'), abajo: r('ArrowDown'), sacar: r('KeyE', { mayusExtra: true }),
+    dictar: escribir('KeyD'), adjuntar: escribir('KeyU'), commit: escribir('Enter'), vistasGit: rango('Digit1', 'Digit4'),
+    panico: mac ? '⇧⌥⌘Esc' : 'Ctrl+Mayús+Alt+Esc',
+    mayus: mac ? '⇧' : 'Mayús+',
+  };
 }
 
 // con una Mayús de más, dentro de un navegador no son del refugio: atrás y adelante (⌘⇧[ ] y Ctrl+Mayús+[ ] son de la
