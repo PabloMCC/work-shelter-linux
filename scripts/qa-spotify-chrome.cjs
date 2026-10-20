@@ -27,6 +27,7 @@ const ver = (ok, texto) => { out((ok ? 'OK    ' : 'FALLO ') + texto); if (!ok) f
 const fuera = [];
 app.setName('work-shelter-public'); app.setPath('userData', process.env.LAB_DATOS);
 const PARTICION = 'persist:navegador';
+// oxlint-disable-next-line typescript/no-implied-eval -- QA manual: carga un trozo de electron/main.cjs para probarlo aislado
 const sp = new Function('app', 'session', 'shell', 'ipcMain', 'path', 'require', '__dirname', 'PARTICION',
   'let ventana;\n' + bloque + '\nreturn { fijar: v => { ventana = v; }, get spotify() { return spotify; } };')(
   app, session, { openExternal: u => { fuera.push(u); out('      FUERA', u); } }, !process.env.LAB_DEP ? ipcMain : {

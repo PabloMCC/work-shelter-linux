@@ -11,6 +11,7 @@ pg.on('console', m => { if (/error|fallo|PREP|RUT/i.test(m.text())) console.log(
 await pg.goto(conToken(url), { waitUntil: 'load' });
 await pg.waitForFunction(() => window.__refugio?.habitantes?.length > 0 && window.__refugio.supervisor, null, { timeout: 90000 });
 await new Promise(r => setTimeout(r, 3000));
+// oxlint-disable-next-line eslint/no-eval -- QA manual: ejecuta en la página de prueba el fragmento que pasa a mano quien lanza el guion
 await pg.evaluate(p => { window.__juego.set({ panel: null }); if (p) eval(p); }, prep);
 const t0 = Date.now(); let n = 0;
 while (Date.now() - t0 < +segundos * 1000) {

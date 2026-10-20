@@ -10,6 +10,7 @@ pg.on('pageerror', e => console.log('PAGEERROR', e.message));
 await pg.goto(conToken(url), { waitUntil: 'load' });
 await pg.waitForFunction(() => window.__refugio?.habitantes?.length > 0 && window.__refugio.supervisor, null, { timeout: 90000 });
 await new Promise(r => setTimeout(r, 2500));
+// oxlint-disable-next-line eslint/no-eval -- QA manual: ejecuta en la página de prueba el fragmento que pasa a mano quien lanza el guion
 await pg.evaluate(p => { window.__juego.set({ panel: null }); if (p) eval(p);
   const r = window.__refugio; const h = r.habitantes.find(x => x.sala === r.salaActual); window.__h = h;
   if (window.__mover) { h.cambiar('esperando'); h.cambiar('ocioso'); h.pos.x = r.salaActual.grupo.position.x + 4.5; h.pos.z = 1.3; } r.interactuar(h);

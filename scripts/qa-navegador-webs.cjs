@@ -16,6 +16,7 @@ const out = (...a) => fs.appendFileSync(LOG, a.join(' ') + '\n');
 let fallos = 0;
 const ver = (ok, texto) => { out((ok ? 'OK    ' : 'FALLO ') + texto); if (!ok) fallos++; };
 let fuera = [];
+// oxlint-disable-next-line typescript/no-implied-eval -- QA manual: carga un trozo de electron/main.cjs para probarlo aislado
 const { navegadores } = new Function('session', 'shell', 'Menu', 'require', 'path', '__dirname', trozo + '\nreturn { navegadores };')(session, { openExternal: u => { fuera.push(u); out('FUERA', u); } }, Menu, require, path, path.join(__dirname, '..', 'electron'));
 app.setName('work-shelter-public'); app.setPath('userData', process.env.LAB_DATOS);
 const espera = ms => new Promise(r => setTimeout(r, ms));
