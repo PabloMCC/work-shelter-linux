@@ -33,7 +33,10 @@ export class Motor {
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;   // las actualiza paso() con su ritmo
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Basic es lo que se ha visto siempre: con three r182, PCFSoftShadowMap acababa pintando sombras Basic por un fallo
+    // (mrdoob/three.js#32591). Desde r183 se convierte en PCF, más suave y más caro, y con autoUpdate=false los
+    // materiales compilados antes de la primera sombra no se rehacen. Pasar a sombras suaves es una decisión aparte.
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
     this.renderer.domElement.className = 'lienzo3d';
     contenedor.appendChild(this.renderer.domElement);
 
