@@ -2,7 +2,9 @@
 import { chromium } from 'playwright';
 import { conToken } from './token.mjs';
 const [w, h] = (process.argv[3] || '1440x900').split('x').map(Number);
-const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+// motor gráfico de ANGLE: Metal en macOS; en el resto, el de Chromium por defecto (o QA_ANGLE=gl|vulkan)
+const ANGLE = process.env.QA_ANGLE ?? (process.platform === 'darwin' ? 'metal' : '');
+const b = await chromium.launch({ args: [...(ANGLE ? [`--use-angle=${ANGLE}`] : []), '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: +(process.argv[4] || 2) });
 await pg.addInitScript('window.__noLoop = true;');
 await pg.goto(conToken(process.argv[2] || 'http://127.0.0.1:5173/'));

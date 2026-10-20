@@ -1,0 +1,25 @@
+[
+  { "type": "system", "subtype": "init", "session_id": "0a1b2c3d-0000-4000-8000-00000000c0de", "cwd": "__CWD__", "model": "modelo-de-prueba", "permissionMode": "default", "apiKeySource": "none" },
+  { "type": "assistant", "parent_tool_use_id": null, "message": { "role": "assistant", "content": [
+    { "type": "text", "text": "Voy a mirar las notas." },
+    { "type": "tool_use", "id": "herr-1", "name": "Read", "input": { "file_path": "__CWD__/notas.txt" } }
+  ] } },
+  { "type": "user", "parent_tool_use_id": null, "message": { "role": "user", "content": [
+    { "type": "tool_result", "tool_use_id": "herr-1", "is_error": true, "content": "El archivo no existe." }
+  ] } },
+  { "type": "assistant", "parent_tool_use_id": null, "message": { "role": "assistant", "content": [
+    { "type": "tool_use", "id": "agente-1", "name": "Agent", "input": { "description": "Revisar las pruebas", "subagent_type": "explorador", "prompt": "Mira las pruebas." } }
+  ] } },
+  { "type": "assistant", "parent_tool_use_id": "agente-1", "message": { "role": "assistant", "content": [
+    { "type": "text", "text": "Texto interno del ayudante." },
+    { "type": "tool_use", "id": "herr-2", "name": "Grep", "input": { "pattern": "describe", "path": "__CWD__" } }
+  ] } },
+  { "type": "user", "parent_tool_use_id": null, "message": { "role": "user", "content": [
+    { "type": "tool_result", "tool_use_id": "agente-1", "content": "Todo en orden." }
+  ] } },
+  { "type": "rate_limit_event", "rate_limit_info": { "status": "allowed_warning", "rateLimitType": "five_hour", "utilization": 0.9 } },
+  { "type": "assistant", "parent_tool_use_id": null, "message": { "role": "assistant", "content": [
+    { "type": "text", "text": "Listo: las pruebas están en orden." }
+  ] } },
+  { "type": "result", "subtype": "success", "is_error": false, "result": "Listo: las pruebas están en orden.", "duration_ms": 4200, "total_cost_usd": 0.0123 }
+]

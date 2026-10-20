@@ -18,7 +18,7 @@ const MAX_DIFF = 1_500_000;   // un diff más grande se corta (y se avisa)
 const MAX_ARCHIVOS = 3000;
 
 interface Salida { out: string; err: string; code: number }
-function ejecutar(cwd: string, args: string[], o: { entrada?: string; timeout?: number; codigos?: number[] } = {}): Promise<Salida> {
+export function ejecutar(cwd: string, args: string[], o: { entrada?: string; timeout?: number; codigos?: number[] } = {}): Promise<Salida> {
   return new Promise((ok, mal) => {
     const p = spawn('git', ['-c', 'core.quotepath=false', '-c', 'color.ui=false', '-C', cwd, ...args], { env: entorno(), stdio: ['pipe', 'pipe', 'pipe'] });
     const out: Buffer[] = [], err: Buffer[] = []; let largo = 0;
@@ -33,6 +33,8 @@ function ejecutar(cwd: string, args: string[], o: { entrada?: string; timeout?: 
       if (r.code !== 0 && !(o.codigos ?? []).includes(r.code)) return mal(new Error(limpiarError(r.err || r.out) || `git ${args[0]} ha fallado (${r.code}).`));
       ok(r);
     });
+    // si git termina sin leer la entrada, escribir da EPIPE: no es un fallo, su resultado llega por 'close'
+    p.stdin.on('error', () => {});
     if (o.entrada !== undefined) p.stdin.end(o.entrada); else p.stdin.end();
   });
 }

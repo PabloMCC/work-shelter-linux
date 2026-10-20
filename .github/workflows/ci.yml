@@ -1,0 +1,51 @@
+# Comprobación de cada cambio en Linux y macOS: instala sin ejecutar scripts de terceros, compila node-pty y
+# esbuild a propósito, y pasa el typecheck y los tests. Las acciones van fijadas por hash de commit (una etiqueta
+# se puede mover; un hash no) con la versión al lado.
+name: CI
+
+on:
+  push:
+    branches: [main, 'fase-*/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  comprobar:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # --include=dev por si el entorno trae NODE_ENV=production; --ignore-scripts para que ninguna dependencia
+      # ejecute código al instalarse. Solo se compilan las dos que lo necesitan. El binario de Electron no se
+      # descarga: los tests no deben depender de él (lo que necesite Electron va en los scripts qa-*).
+      - name: Instalar dependencias
+        run: |
+          npm ci --include=dev --ignore-scripts
+          npm rebuild node-pty esbuild
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+        env:
+          FORCE_COLOR: '0'
