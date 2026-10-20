@@ -33,7 +33,10 @@ export class Motor {
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;   // las actualiza paso() con su ritmo
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Basic es lo que se ha visto siempre: con three r182, PCFSoftShadowMap acababa pintando sombras Basic por un fallo
+    // (mrdoob/three.js#32591). Desde r183 se convierte en PCF, más suave y más caro, y con autoUpdate=false los
+    // materiales compilados antes de la primera sombra no se rehacen. Pasar a sombras suaves es una decisión aparte.
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
     this.renderer.domElement.className = 'lienzo3d';
     contenedor.appendChild(this.renderer.domElement);
 
@@ -42,7 +45,11 @@ export class Motor {
 
     // Luz de entorno suave (como en los previews oficiales): da volumen a los personajes sin aplanarlos
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    // three r183 bajó la sala 3,5 unidades (mrdoob/three.js#32646) y el refugio salía un 8 % más claro: se deja donde
+    // estaba, que es el aspecto elegido
+    const sala = new RoomEnvironment();
+    sala.position.y = 0;
+    const env = pmrem.fromScene(sala, 0.04).texture;
     this.scene.environment = env;
     this.scene.environmentIntensity = 0.24;
     this.scene.environmentRotation.set(0, Math.PI * 0.15, 0);
