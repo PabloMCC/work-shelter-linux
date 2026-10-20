@@ -72,7 +72,10 @@ if ! nodo_disponible; then
   curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/${DIR#.runtime/}.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 24 desde https://nodejs.org"; exit 1; }
   # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
   echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 24 desde https://nodejs.org"; exit 1; }
-  tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
+  # si la extracción falla (disco lleno, descarga cortada) no se sigue: lo que quede a medias podría tener ya bin/node
+  # y el siguiente arranque lo daría por bueno
+  tar -xzf .runtime/node.tar.gz -C .runtime || { rm -rf "$DIR" .runtime/node.tar.gz; rojo "No he podido descomprimir el Node descargado (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter o instala Node 24 desde https://nodejs.org"; exit 1; }
+  rm .runtime/node.tar.gz
   usar_nodo_portatil "$DIR"
   # con el nuevo ya en su sitio, fuera los portátiles anteriores: una actualización deja el viejo y Electron añade al
   # PATH el bin/ de cada uno

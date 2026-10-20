@@ -491,6 +491,11 @@ describe('borrar_nodos_viejos (al subir NODO_VERSION, el portátil anterior no s
     expect(i).toBeLessThan(t.indexOf('\nfi\n', t.indexOf('# 1. Node')));
     expect(t.slice(t.lastIndexOf('\n', i), i)).toMatch(/\[ -x "\$DIR\/bin\/node" \] && $/);   // solo si el nuevo está
   });
+  it('./shelter para si falla la extracción del nuevo, y borra lo que quede a medias para no usarlo después', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const linea = t.split('\n').find(l => l.includes('tar -xzf .runtime/node.tar.gz')) ?? '';
+    expect(linea).toMatch(/tar -xzf \.runtime\/node\.tar\.gz -C \.runtime \|\| \{ rm -rf "\$DIR" \.runtime\/node\.tar\.gz; rojo "[^"]+"; exit 1; \}$/);
+  });
 });
 
 describe('carpeta_registros', () => {
