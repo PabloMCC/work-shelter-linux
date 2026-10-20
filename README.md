@@ -402,7 +402,8 @@ pnpm dev                         # interfaz con recarga en caliente (http://127.
 node server/supervisor.mjs       # servidor con reinicio desde el juego (SHELTER_DATOS=/tmp/x para no tocar tus datos)
 pnpm test                        # pruebas (sin red: las integraciones se prueban con fixtures sintéticos)
 pnpm typecheck                   # tipos
-pnpm lint                        # linter (Oxlint con tipos; .oxlintrc.json)
+pnpm lint                        # linter (Oxlint con tipos; .oxlintrc.json y oxlint-suppressions.json)
+pnpm lint:prune                  # tras arreglar avisos antiguos: baja su cuenta en oxlint-suppressions.json
 node scripts/captura.mjs <url> <png> 1600 900 --pasos=40   # capturas para QA visual
 ```
 

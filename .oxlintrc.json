@@ -3,29 +3,29 @@
   // Con tipos (oxlint-tsgolint, que usa TypeScript 7): reglas como no-floating-promises necesitan saber qué es
   // una promesa
   "options": { "typeAware": true },
-  // Todo lo que hoy está limpio es un error: la CI falla si aparece algo nuevo
+  // Todo es error. Lo que ya incumplía estas reglas antes de introducir el linter está contado, por archivo y
+  // regla, en oxlint-suppressions.json, que genera el propio Oxlint: lo nuevo falla, y lo arreglado obliga a bajar
+  // la cuenta (pnpm lint:prune). Cómo se usa: AGENTS.md, «Pruebas».
   "categories": { "correctness": "error" },
-  // Reglas con avisos de antes de introducir el linter (20-oct-2026): se quedan como aviso hasta limpiarlas, y
-  // `pnpm lint` falla si su número sube (--max-warnings en package.json). Entre paréntesis, cuántos había.
   "rules": {
-    "typescript/no-floating-promises": "warn",        // (555) promesas sin await ni .catch
-    "eslint/no-unused-vars": "warn",                  // (36)
-    "typescript/no-base-to-string": "warn",           // (26) objetos convertidos a texto como [object Object]
-    "unicorn/prefer-string-starts-ends-with": "warn", // (18)
-    "eslint/no-unused-expressions": "warn",           // (14)
-    "unicorn/no-useless-spread": "warn",              // (11)
-    "unicorn/no-useless-fallback-in-spread": "warn",  // (10)
-    "eslint/no-control-regex": "warn",                // (6)
-    "unicorn/no-new-array": "warn",                   // (6)
-    "typescript/require-array-sort-compare": "warn",  // (3)
-    "eslint/no-eval": "warn",                         // (2) solo en guiones de QA manuales (scripts/qa-*)
-    "oxc/erasing-op": "warn",                         // (2) operaciones que siempre dan cero: revisar
-    "typescript/no-misused-spread": "warn",           // (2)
-    "typescript/no-implied-eval": "warn",             // (2) solo en guiones de QA manuales (scripts/qa-*)
-    "eslint/no-self-assign": "warn",                  // (1) revisar
-    "typescript/no-this-alias": "warn",               // (1)
-    "typescript/no-redundant-type-constituents": "warn", // (1)
-    "typescript/await-thenable": "warn",              // (1) Promise.all sobre valores que no son promesas: revisar
-    "typescript/unbound-method": "warn"               // (1)
+    "typescript/no-floating-promises": "error",
+    "eslint/no-unused-vars": "error",
+    "typescript/no-base-to-string": "error",
+    "unicorn/prefer-string-starts-ends-with": "error",
+    "eslint/no-unused-expressions": "error",
+    "unicorn/no-useless-spread": "error",
+    "unicorn/no-useless-fallback-in-spread": "error",
+    "eslint/no-control-regex": "error",
+    "unicorn/no-new-array": "error",
+    "typescript/require-array-sort-compare": "error",
+    "eslint/no-eval": "error",
+    "oxc/erasing-op": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-implied-eval": "error",
+    "eslint/no-self-assign": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/await-thenable": "error",
+    "typescript/unbound-method": "error"
   }
 }
