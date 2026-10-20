@@ -2,7 +2,7 @@
 // de prueba: árbol (ignorados y cambios de git), abrir por nombre (⌘P), editar y guardar (⌘S), un .env, renombrar,
 // crear, a la papelera, cambios en el disco y conflicto al guardar.
 // Uso, con un refugio de pruebas (nunca con tus repos):
-//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 npm run dev   (en otra terminal)
+//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 pnpm dev   (en otra terminal)
 //   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-archivos.mjs <repo-de-prueba> [carpeta-de-capturas]
 // El repo de prueba necesita .gitignore con «.env», un .env, src/app.ts y src/lib/util.ts con un cambio sin commit.
 // Toca archivos del repo de prueba (y manda uno a la papelera).

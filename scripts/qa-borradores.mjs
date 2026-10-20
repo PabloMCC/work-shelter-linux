@@ -3,7 +3,7 @@
 // lo escrito en una conversación y en un trabajo nuevo sin lanzar sobrevive a recargar la página; si la conversación
 // se cierra sin que la cierre el Supervisor, la pestaña se queda con lo escrito para retomarla; Esc con algo escrito
 // solo lo borra a la segunda; cerrar a mano una pestaña con algo escrito pregunta.
-// Uso: node scripts/qa-borradores.mjs [url]   (con un refugio de pruebas: SHELTER_DATOS=/tmp/x npm run dev)
+// Uso: node scripts/qa-borradores.mjs [url]   (con un refugio de pruebas: SHELTER_DATOS=/tmp/x pnpm dev)
 // Ojo: lanza sesiones reales de Claude Code (gastan de tu plan) y puede aprobar permisos: úsalo contra un refugio de
 // pruebas (arranca el juego con SHELTER_DATOS=/ruta/temporal), nunca contra el tuyo.
 import { chromium } from 'playwright';

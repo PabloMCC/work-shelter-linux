@@ -35,13 +35,14 @@ if [ -n "$DESINSTALAR_APP" ]; then desinstalar_app_disponible || exit 1; fi
 
 # Carpeta del Node portátil (relativa a la raíz): carpeta_nodo <so> <arq>. Es también el nombre de su descarga
 carpeta_nodo() { echo ".runtime/node-v$NODO_VERSION-$1-$2"; }
-# Usa el Node de una carpeta del portátil: deja NODE y NPM apuntando a él y su bin/ al principio del PATH
-usar_nodo_portatil() { export PATH="$RAIZ/$1/bin:$PATH"; NODE="$RAIZ/$1/bin/node"; NPM="$RAIZ/$1/bin/npm"; }
+# Usa el Node de una carpeta del portátil: deja NODE apuntando a él y su bin/ al principio del PATH (también para los
+# scripts de instalación de las dependencias, que pnpm ejecuta con el node del PATH)
+usar_nodo_portatil() { export PATH="$RAIZ/$1/bin:$PATH"; NODE="$RAIZ/$1/bin/node"; }
 # El Node que ya hay: el del sistema si llega a NODO_MINIMO, o el portátil ya descargado en .runtime/. No descarga nada;
-# solo cambia NODE, NPM y el PATH
+# solo cambia NODE y el PATH
 nodo_disponible() {
   if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge "$NODO_MINIMO" ]; then
-    NODE="$(command -v node)"; NPM="$(command -v npm)"; return 0
+    NODE="$(command -v node)"; return 0
   fi
   local so arq dir; so="$(so_node 2>/dev/null)" || return 1; arq="$(arq_node "$NODO_VERSION" 2>/dev/null)" || return 1
   dir="$(carpeta_nodo "$so" "$arq")"
@@ -93,12 +94,34 @@ if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; th
   rojo "  work-shelter se abrirá igualmente, pero los habitantes no podrán trabajar hasta entonces."
 fi
 
-# 3. Dependencias (la primera vez, o si cambia package-lock.json)
+# 3. Dependencias (la primera vez, o si cambia pnpm-lock.yaml o pnpm-workspace.yaml, que dice qué paquetes pueden
+# ejecutar scripts al instalarse)
 SELLO="node_modules/.sello-shelter"
-HUELLA="$(huella_de package-lock.json)"
+HUELLA="$(huella_de pnpm-lock.yaml) $(huella_de pnpm-workspace.yaml)"
 if [ ! -f "$SELLO" ] || [ "$(cat "$SELLO")" != "$HUELLA" ]; then
+  # 3a. pnpm, el de packageManager en package.json y nunca uno del sistema (scripts/plataforma.sh, version_pnpm). Si no
+  # está en .runtime/, se descarga del registro de npm y no se extrae nada que no cuadre con la integridad sha512 que
+  # guarda pnpm-lock.yaml
+  PNPM_VERSION="$(version_pnpm "$NODE" package.json)" || { rojo "package.json no dice qué pnpm usar (packageManager «pnpm@x.y.z»)."; exit 1; }
+  SO="$(so_node)"; ARQ="$(arq_node "$NODO_VERSION")"
+  PDIR="$(carpeta_pnpm "$PNPM_VERSION" "$SO" "$ARQ")"; PNPM="$RAIZ/$PDIR/pnpm"
+  if [ ! -x "$PNPM" ]; then
+    INTEGRIDAD="$(integridad_pnpm pnpm-lock.yaml "$PNPM_VERSION" "$SO" "$ARQ")" || { rojo "No sé qué pnpm esperar para este sistema: no descargo nada."; exit 1; }
+    amarillo "Descargando pnpm $PNPM_VERSION para instalar las dependencias (solo esta vez)…"
+    mkdir -p .runtime
+    curl -fL --progress-bar "$(url_pnpm "$PNPM_VERSION" "$SO" "$ARQ")" -o .runtime/pnpm.tgz || { rm -f .runtime/pnpm.tgz; rojo "No he podido descargar pnpm. Comprueba la conexión y vuelve a ejecutar ./shelter"; exit 1; }
+    sha512_comprobar "$NODE" .runtime/pnpm.tgz "$INTEGRIDAD" || { rm -f .runtime/pnpm.tgz; rojo "El pnpm descargado no cuadra con su huella de pnpm-lock.yaml: no lo uso."; exit 1; }
+    # del paquete solo hace falta el ejecutable; si la extracción falla o no queda ejecutable, fuera lo extraído a
+    # medias
+    mkdir -p "$PDIR" && tar -xzf .runtime/pnpm.tgz -C "$PDIR" --strip-components=1 package/pnpm && [ -x "$PNPM" ] || { rm -rf "$PDIR" .runtime/pnpm.tgz; rojo "No he podido descomprimir pnpm (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter"; exit 1; }
+    rm .runtime/pnpm.tgz
+    # con el nuevo ya en su sitio, fuera los anteriores de este sistema
+    borrar_pnpm_viejos "$RAIZ" "$PDIR" "$SO" "$ARQ" || true
+  fi
   amarillo "Instalando dependencias (la primera vez tarda un par de minutos)…"
-  "$NPM" ci --no-audit --no-fund --loglevel=error || { rojo "Falló la instalación de dependencias (npm ci)."; exit 1; }
+  # siempre también las de desarrollo (--prod=false: Electron y Vite lo son, aunque llegue NODE_ENV=production), sin
+  # tocar el lockfile y sin que pnpm se cambie solo de versión (--pm-on-fail=error)
+  "$PNPM" install --frozen-lockfile --prod=false --pm-on-fail=error --loglevel=error || { rojo "Falló la instalación de dependencias (pnpm install)."; exit 1; }
   echo "$HUELLA" > "$SELLO"
 fi
 

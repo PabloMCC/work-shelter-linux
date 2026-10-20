@@ -1,0 +1,17 @@
+# Paquetes que pueden ejecutar código al instalarse (scripts de instalación). Cualquier otro que lo pida hace fallar
+# la instalación (strictDepBuilds), así que una dependencia nueva con scripts no entra sin añadirla aquí a propósito.
+#   node-pty: compila su parte nativa (la terminal) con node-gyp; no trae binario para Linux
+#   esbuild: comprueba y enlaza su binario de la plataforma (lo usan Vite y tsx)
+#   fsevents: vigilancia de archivos de macOS (opcional; en Linux no se instala)
+# Electron no tiene script de instalación: su binario lo descarga ./shelter aparte (node_modules/electron/install.js).
+allowBuilds:
+  node-pty: true
+  esbuild: true
+  fsevents: true
+strictDepBuilds: true
+# El almacén y la caché de pnpm, dentro de la carpeta del juego (en .runtime/, fuera de git): nada queda en el hogar
+# y borrar la carpeta lo quita todo. Casi todo el almacén son los mismos archivos que node_modules (enlaces duros).
+storeDir: .runtime/pnpm-store
+cacheDir: .runtime/pnpm-cache
+# la versión de pnpm la fija package.json (packageManager): no tiene sentido avisar de otras
+updateNotifier: false

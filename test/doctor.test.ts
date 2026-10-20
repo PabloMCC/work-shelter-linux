@@ -247,7 +247,7 @@ describe('./shelter doctor', () => {
     const puerta = t.indexOf('scripts/doctor.sh');
     expect(puerta).toBeGreaterThan(0);
     expect(t).toMatch(/doctor\)\s*exec bash scripts\/doctor\.sh/);
-    for (const paso of ['# 1. Node', 'curl ', 'npm', 'install.js']) expect(puerta).toBeLessThan(t.indexOf(paso));
+    for (const paso of ['# 1. Node', 'curl ', '"$PNPM" install', 'install.js']) expect(puerta).toBeLessThan(t.indexOf(paso));
   });
   it('el aviso del lanzador cuando cae el aislamiento lleva a ./shelter doctor', () => {
     expect(readFileSync(path.join(RAIZ, 'scripts', 'plataforma.sh'), 'utf8')).toContain('./shelter doctor');

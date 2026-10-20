@@ -36,6 +36,14 @@ describe('huellas del código', () => {
     expect(huellas.clienteAlDia(raiz)).toBe(false);
     expect(huellas.huella('servidor', raiz)).not.toBe(servidor);
   });
+  it('un cambio en pnpm-lock.yaml cambia la del cliente y la del servidor (las dependencias son de los dos)', () => {
+    const raiz = refugio();
+    writeFileSync(path.join(raiz, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n");
+    const cliente = huellas.huella('cliente', raiz); const servidor = huellas.huella('servidor', raiz);
+    writeFileSync(path.join(raiz, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n# otra versión\n");
+    expect(huellas.huella('cliente', raiz)).not.toBe(cliente);
+    expect(huellas.huella('servidor', raiz)).not.toBe(servidor);
+  });
   it('la de la app cambia con electron/ pero no con su icono', () => {
     const raiz = refugio();
     const h = huellas.huella('app', raiz);

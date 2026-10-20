@@ -54,20 +54,94 @@ suma_node() {
 # (unos 100 MB) se quedaría para siempre, y Electron añade al PATH el bin/ de cada portátil (electron/plataforma.cjs).
 # borrar_nodos_viejos <raíz> <carpeta nueva, .runtime/…> <so> <arq>: solo <raíz>/.runtime/node-v<x.y.z>-<so>-<arq>,
 # nunca la nueva ni las de otro sistema o arquitectura. Sin alguno de los datos no borra nada y devuelve 1
-borrar_nodos_viejos() {
-  local raiz="${1:-}" nueva="${2:-}" so="${3:-}" arq="${4:-}" d n v
-  [ -n "$raiz" ] && [ -n "$nueva" ] && [ -n "$so" ] && [ -n "$arq" ] || return 1
+borrar_nodos_viejos() { borrar_versiones_viejas node-v "$@"; }
+
+# Lo común de borrar_nodos_viejos y borrar_pnpm_viejos: borrar_versiones_viejas <prefijo> <raíz> <carpeta nueva> <so>
+# <arq> borra <raíz>/.runtime/<prefijo><versión>-<so>-<arq> salvo la nueva, solo si <versión> es una serie de números
+# con puntos, nunca un enlace ni lo de otro sistema o arquitectura. Sin alguno de los datos no borra nada y devuelve 1
+borrar_versiones_viejas() {
+  local prefijo="${1:-}" raiz="${2:-}" nueva="${3:-}" so="${4:-}" arq="${5:-}" d n v
+  [ -n "$prefijo" ] && [ -n "$raiz" ] && [ -n "$nueva" ] && [ -n "$so" ] && [ -n "$arq" ] || return 1
   nueva="${nueva##*/}"
   # sin coincidencias, el patrón queda tal cual y no es una carpeta: no se borra nada
-  for d in "$raiz/.runtime/node-v"*"-$so-$arq"; do
+  for d in "$raiz/.runtime/$prefijo"*"-$so-$arq"; do
     [ -d "$d" ] && [ ! -L "$d" ] || continue
     n="${d##*/}"; [ "$n" != "$nueva" ] || continue
-    v="${n#node-v}"; v="${v%-"$so"-"$arq"}"
+    v="${n#"$prefijo"}"; v="${v%-"$so"-"$arq"}"
     case "$v" in ''|*[!0-9.]*|.*|*.|*..*) continue ;; esac   # solo versiones x.y.z de números
     rm -rf "$d" || true
   done
   return 0
 }
+
+# pnpm fijado: ./shelter nunca usa un pnpm del sistema. Instala las dependencias con el de packageManager
+# (package.json), el ejecutable autónomo que publica pnpm en el registro de npm (@pnpm/exe.<so>-<arq>, no necesita
+# Node), comprobado con la integridad sha512 que el propio pnpm guarda de él en pnpm-lock.yaml
+# (packageManagerDependencies) antes de extraer nada. Los nombres de sistema y arquitectura son los de so_node y
+# arq_node, que coinciden con los de esos paquetes.
+
+# Versión de pnpm de packageManager: version_pnpm <node> <package.json>. Solo «pnpm@x.y.z» (con o sin «+huella» detrás);
+# cualquier otra cosa, nada y 1
+version_pnpm() {
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] || return 1
+  "$1" -e '
+    let pm = "";
+    try { pm = String(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).packageManager ?? ""); } catch {}
+    const m = /^pnpm@(\d+\.\d+\.\d+)(\+[A-Za-z0-9.+/=-]+)?$/.exec(pm);
+    if (!m) process.exit(1);
+    console.log(m[1]);
+  ' "$2" 2>/dev/null
+}
+
+# Carpeta de un pnpm (relativa a la raíz) y dirección de su paquete en el registro:
+# carpeta_pnpm|url_pnpm <ver> <so> <arq>
+carpeta_pnpm() { [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ -n "${3:-}" ] || return 1; echo ".runtime/pnpm-$1-$2-$3"; }
+url_pnpm() {
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ -n "${3:-}" ] || return 1
+  echo "https://registry.npmjs.org/@pnpm/exe.$2-$3/-/exe.$2-$3-$1.tgz"
+}
+
+# Integridad esperada del pnpm de un sistema según el lockfile: integridad_pnpm <pnpm-lock.yaml> <ver> <so> <arq>. Busca
+# la clave «  '@pnpm/exe.<so>-<arq>@<ver>':» (sección packages) y vale solo si la línea siguiente es su
+# «resolution: {integrity: sha512-…}» con un sha512 completo (88 caracteres en base64). La misma clave en snapshots no
+# lleva esa línea y se salta. Sin ella, falla cerrado con un mensaje: nunca se descarga un pnpm sin saber qué esperar
+integridad_pnpm() {
+  local lock="${1:-}" ver="${2:-}" so="${3:-}" arq="${4:-}" clave l sig="" v=""
+  if [ -n "$ver" ] && [ -n "$so" ] && [ -n "$arq" ] && [ -f "$lock" ]; then
+    clave="@pnpm/exe.$so-$arq@$ver"
+    while IFS= read -r l || [ -n "$l" ]; do
+      if [ -n "$sig" ]; then
+        sig=""
+        case "$l" in "    resolution: {integrity: sha512-"*"}") v="${l#"    resolution: {integrity: "}"; v="${v%\}}"; break ;; esac
+      fi
+      if [ "$l" = "  '$clave':" ] || [ "$l" = "  $clave:" ]; then sig=1; fi
+    done < "$lock"
+  fi
+  # sha512 en base64: 86 caracteres y «==»
+  case "$v" in sha512-*==) case "${v#sha512-}" in *[!A-Za-z0-9+/=]*) v="" ;; esac ;; *) v="" ;; esac
+  [ "${#v}" -eq 95 ] || v=""
+  if [ -z "$v" ]; then
+    printf 'No encuentro en %s la huella de pnpm %s para «%s %s»: no lo descargo.\n' "${lock:-pnpm-lock.yaml}" "$ver" "$so" "$arq" >&2
+    return 1
+  fi
+  echo "$v"
+}
+
+# Comprueba un archivo contra una integridad «sha512-<base64>» con el Node que se le pase (node:crypto, igual en macOS
+# y en Linux): sha512_comprobar <node> <archivo> <integridad>. 0 si cuadra; 1 si no, o con otro algoritmo o nada
+sha512_comprobar() {
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] || return 1
+  case "${3:-}" in sha512-?*) ;; *) return 1 ;; esac
+  "$1" -e '
+    const [archivo, esperada] = process.argv.slice(1);
+    const h = require("node:crypto").createHash("sha512").update(require("node:fs").readFileSync(archivo)).digest("base64");
+    process.exit("sha512-" + h === esperada ? 0 : 1);
+  ' "$2" "$3" 2>/dev/null
+}
+
+# Tras instalar un pnpm, borra los anteriores del mismo sistema y arquitectura (unos 60 MB cada uno), con las mismas
+# reglas que borrar_nodos_viejos: borrar_pnpm_viejos <raíz> <carpeta nueva, .runtime/…> <so> <arq>
+borrar_pnpm_viejos() { borrar_versiones_viejas pnpm- "$@"; }
 
 # Comprueba líneas «SUMA  archivo» que llegan por la entrada: sha256sum (Linux) o, si no está, shasum (macOS)
 sha256_comprobar() {
@@ -144,7 +218,7 @@ registro_desde_menu() {
   echo "== $(date '+%Y-%m-%d %H:%M:%S') · abierto desde el menú${1:+ · este arranque abre el refugio} =="
 }
 
-# Cerrojo del lanzador: dos ./shelter a la vez (un doble clic en el menú) no pueden preparar lo mismo a la vez (npm ci,
+# Cerrojo del lanzador: dos ./shelter a la vez (un doble clic en el menú) no pueden preparar lo mismo a la vez (pnpm,
 # Electron, el material, la compilación, el servidor) o se pisan en node_modules. Es una carpeta (mkdir es atómico en
 # macOS y en Linux, que no traen el mismo flock) con el pid del dueño dentro. tomar_cerrojo <carpeta> [segundos]: espera
 # como mucho esos segundos (SHELTER_ESPERA_CERROJO, 120 por omisión) avisando una vez; si el dueño ya no vive, el
@@ -206,7 +280,7 @@ electron_ya_descargado() {
 }
 
 # ./shelter no ha conseguido el cerrojo (otro arranque sigue preparando después de la espera): aquí nunca se prepara nada
-# (ni Node, ni npm ci, ni Electron, ni el material, ni la compilación), que sería pisar al otro. ya_abierto_sin_cerrojo
+# (ni Node, ni pnpm, ni Electron, ni el material, ni la compilación), que sería pisar al otro. ya_abierto_sin_cerrojo
 # <raíz> <puerto> <datos>. Dos caminos:
 # - Un servidor contesta /salud: el refugio ya está abierto. Desde la app de macOS se le pasa su dirección (la línea
 #   SHELTER_URL); si no, se lanza el Electron ya descargado, si lo está, y su cerrojo de una sola ventana

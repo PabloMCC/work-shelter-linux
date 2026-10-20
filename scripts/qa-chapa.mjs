@@ -2,7 +2,7 @@
 // pestaña a pestaña con sus miniaturas, el cambio a robot, el azar, guardar (el servidor lo valida y el personaje del
 // refugio se viste sin moverse) y que la Octocat no se puede tocar. Mide además la altura de todos los habitantes.
 // Uso, con un refugio de pruebas:
-//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3799 npm run dev   (en otra terminal)
+//   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3799 pnpm dev   (en otra terminal)
 //   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-chapa.mjs [carpeta-de-capturas]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';

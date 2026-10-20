@@ -24,7 +24,7 @@ function servirAssets(): Plugin {
 }
 
 // El secreto del arranque NO va en la página ni en desarrollo: cualquier proceso local podría leerlo con un GET.
-// `npm run dev` abre la URL con #t=<token>. Solo para la QA automatizada, y a sabiendas, SHELTER_TOKEN_EN_PAGINA=1
+// `pnpm dev` abre la URL con #t=<token>. Solo para la QA automatizada, y a sabiendas, SHELTER_TOKEN_EN_PAGINA=1
 // lo inyecta como antes.
 function tokenDesarrollo(): Plugin {
   const archivo = join(resolve(process.env.SHELTER_DATOS || join(__dirname, '.data')), 'token');

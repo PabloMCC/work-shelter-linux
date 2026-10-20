@@ -3,6 +3,7 @@
 # preparar ni instalar nada. De lo que falte escribe la orden para instalarlo con pacman, apt o dnf (según
 # /etc/os-release); las que piden sudo las ejecuta la persona, nunca este script. Sale con 0 si todo lo obligatorio está y
 # con 1 si no. Compatible con el bash 3.2 de macOS. Cargado con `source` solo define funciones (así se prueba cada una).
+# pnpm no se comprueba: ./shelter descarga el suyo (el de packageManager) y nunca usa uno del sistema.
 # Para las pruebas: DOCTOR_RAIZ antepone una carpeta a /etc, /proc/sys y /dev; DOCTOR_ELECTRON_DIST cambia la carpeta
 # del binario de Electron (por omisión, node_modules/electron/dist de este repositorio).
 
@@ -246,9 +247,9 @@ doctor_principal() {
   esac
   echo "Obligatorio:"
   bien "bash $BASH_VERSION: el lanzador"
-  herramienta obligatoria curl "descargas (Node portátil y material del juego)" "$fam"
+  herramienta obligatoria curl "descargas (Node portátil, pnpm y material del juego)" "$fam"
   herramienta obligatoria git "las salas y su historial" "$fam"
-  herramienta obligatoria tar "descomprimir el Node portátil" "$fam"
+  herramienta obligatoria tar "descomprimir el Node portátil y pnpm" "$fam"
   comprobar_node
   comprobar_claude
   [ "$so" = linux ] && comprobar_sandbox

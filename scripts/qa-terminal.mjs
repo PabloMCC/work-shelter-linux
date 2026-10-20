@@ -7,7 +7,7 @@
 // Con --reinicio, además: un programa pone modos (kitty, pegado entre corchetes, pantalla alternativa) y escribe más de
 // 60 KB; se pulsa «reiniciar» en la regleta y, ya recargado, la ventana sigue abierta y los modos siguen vigentes.
 // Uso: node scripts/qa-terminal.mjs [url] [salida.png] [--reinicio]   (servidor en marcha; SHELTER_DATOS para el token;
-// el reinicio necesita el servidor bajo el supervisor: ./shelter, npm run dev o node server/supervisor.mjs)
+// el reinicio necesita el servidor bajo el supervisor: ./shelter, pnpm dev o node server/supervisor.mjs)
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
