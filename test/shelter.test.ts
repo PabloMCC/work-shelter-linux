@@ -195,9 +195,12 @@ describe('instalar-app y desinstalar-app (sus puertas y su instalador)', () => {
 });
 
 describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)', () => {
+  // con las herramientas reales pero el uname falso delante: estas pruebas son de la carpeta de Linux (en macOS, uname
+  // diría Darwin y el registro iría a ~/Library/Logs)
+  const comoLinux = () => (unameFalso(), { PATH: `${dir}:${process.env.PATH}` });
   it('manda lo que se escriba (también los errores) al shelter.log, solo legible por ti', () => {
     const estado = path.join(dir, 'estado');
-    const r = bash('registro_desde_menu && { echo hola; echo fallo >&2; }', { real: true, env: { XDG_STATE_HOME: estado } });
+    const r = bash('registro_desde_menu && { echo hola; echo fallo >&2; }', { real: true, env: { ...comoLinux(), XDG_STATE_HOME: estado } });
     expect(r).toMatchObject({ codigo: 0, salida: '', error: '' });
     const log = path.join(estado, 'work-shelter-public', 'shelter.log');
     const texto = readFileSync(log, 'utf8');
@@ -206,7 +209,7 @@ describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)',
   });
   it('sin más, se añade al final: un arranque que solo trae al frente la ventana no rota el registro del que está abierto', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
-    const env = { XDG_STATE_HOME: estado };
+    const env = { ...comoLinux(), XDG_STATE_HOME: estado };
     bash('registro_desde_menu && echo primero', { real: true, env });
     bash('registro_desde_menu && echo segundo', { real: true, env });
     const texto = readFileSync(log, 'utf8');
@@ -217,7 +220,7 @@ describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)',
   });
   it('con «nuevo» (el arranque que abre el servidor) empieza un registro nuevo y guarda solo el anterior en shelter.log.1', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
-    const env = { XDG_STATE_HOME: estado };
+    const env = { ...comoLinux(), XDG_STATE_HOME: estado };
     bash('registro_desde_menu && echo primero', { real: true, env });
     bash('registro_desde_menu nuevo && echo segundo', { real: true, env });
     expect(readFileSync(log, 'utf8')).toContain('segundo'); expect(readFileSync(log, 'utf8')).not.toContain('primero');
@@ -229,23 +232,23 @@ describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)',
   });
   it('lo ya redirigido sigue en el registro tras rotar: lo de antes queda en shelter.log.1 y lo de después en el nuevo', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
-    bash('registro_desde_menu && echo antes && registro_desde_menu nuevo && echo despues', { real: true, env: { XDG_STATE_HOME: estado } });
+    bash('registro_desde_menu && echo antes && registro_desde_menu nuevo && echo despues', { real: true, env: { ...comoLinux(), XDG_STATE_HOME: estado } });
     expect(readFileSync(`${log}.1`, 'utf8')).toContain('antes'); expect(readFileSync(`${log}.1`, 'utf8')).not.toContain('despues');
     expect(readFileSync(log, 'utf8')).toContain('despues'); expect(readFileSync(log, 'utf8')).not.toContain('antes');
   });
   it('un registro que ya existía con otros permisos queda a 600, se añada o se rote', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
     mkdirSync(path.dirname(log), { recursive: true }); writeFileSync(log, 'viejo\n'); chmodSync(log, 0o644);
-    bash('registro_desde_menu', { real: true, env: { XDG_STATE_HOME: estado } });
+    bash('registro_desde_menu', { real: true, env: { ...comoLinux(), XDG_STATE_HOME: estado } });
     expect(statSync(log).mode & 0o777).toBe(0o600); expect(readFileSync(log, 'utf8')).toMatch(/^viejo\n/);
     chmodSync(log, 0o644);
-    bash('registro_desde_menu nuevo', { real: true, env: { XDG_STATE_HOME: estado } });
+    bash('registro_desde_menu nuevo', { real: true, env: { ...comoLinux(), XDG_STATE_HOME: estado } });
     expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(`${log}.1`).mode & 0o777).toBe(0o600);
     expect(readFileSync(`${log}.1`, 'utf8')).toMatch(/^viejo\n/);
   });
   it('si no se puede crear el registro, falla y la salida se queda donde estaba', () => {
     const tapon = path.join(dir, 'tapon'); writeFileSync(tapon, '');   // un archivo donde tendría que ir la carpeta
-    const r = bash('registro_desde_menu || echo sigue', { real: true, env: { XDG_STATE_HOME: tapon } });
+    const r = bash('registro_desde_menu || echo sigue', { real: true, env: { ...comoLinux(), XDG_STATE_HOME: tapon } });
     expect(r.salida).toBe('sigue');
   });
   it('./shelter lo usa con SHELTER_DESDE_MENU nada más cargar plataforma.sh, antes de preparar nada', () => {
