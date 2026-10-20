@@ -225,6 +225,7 @@ describe('contrato con los guiones de medición', () => {
   });
   it('un pase del desglose sin nombre no rompe la tabla', () => {
     const r = coste(A, 10, 20, { desglose: { total: { llamadas: 3, triangulos: 3 }, porPase: [{ llamadas: 2, triangulos: 2 }, { nombre: 'post 1: X', llamadas: 1, triangulos: 1 }], porGrupo: {} } });
-    expect(() => t.resumirCandidato({ hash: A, registros: [r] })).not.toThrow();
+    // el pase sin nombre no es postproceso: solo cuenta la llamada del «post 1»
+    expect(t.resumirCandidato({ hash: A, registros: [r] }).coste.recuentos.pasesPost).toBe('1');
   });
 });

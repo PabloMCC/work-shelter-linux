@@ -64,7 +64,7 @@ export class Motor {
         await stats.init(this.renderer.getContext());
         document.body.appendChild(stats.dom);
         this.stats = stats;
-      });
+      }).catch((e: unknown) => console.warn('stats-gl no ha arrancado:', e));
     }
     window.addEventListener('resize', () => this.redimensionar());
     this.redimensionar();
