@@ -9,6 +9,12 @@ allowBuilds:
   esbuild: true
   fsevents: true
 strictDepBuilds: true
+# Versiones impuestas a dependencias de otros paquetes, con su motivo:
+#   dompurify: monaco-editor 0.57.0 (la última) fija 3.4.15, con dos avisos de seguridad (GHSA-p98j-92pf-mc4p y
+#   GHSA-6688-9rhm-gjv2, corregidos en 3.4.16). Una sola versión, la más reciente, para el editor y para el juego.
+#   Quitarlo cuando monaco-editor traiga una versión corregida.
+overrides:
+  dompurify: 3.4.17
 # El almacén y la caché de pnpm, dentro de la carpeta del juego (en .runtime/, fuera de git): nada queda en el hogar
 # y borrar la carpeta lo quita todo. Casi todo el almacén son los mismos archivos que node_modules (enlaces duros).
 storeDir: .runtime/pnpm-store
