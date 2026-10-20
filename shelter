@@ -10,6 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 RAIZ="$(pwd)"
 source scripts/plataforma.sh
+# desde el menú, la salida se añade a shelter.log; solo se empieza uno nuevo si este arranque abre el servidor (paso 6)
 if [ -n "${SHELTER_DESDE_MENU:-}" ]; then registro_desde_menu || true; fi
 NODO_VERSION="22.20.0"
 if [ -n "${SHELTER_DESDE_MENU:-}" ]; then   # al registro, sin colores
@@ -30,15 +31,20 @@ case "${1:-}" in doctor) exec bash scripts/doctor.sh ;; superficie|enganchar) SU
 if [ -n "$INSTALAR_APP" ]; then instalar_app_disponible || exit 1; fi
 if [ -n "$DESINSTALAR_APP" ]; then desinstalar_app_disponible || exit 1; fi
 
-# El Node que ya hay: el del sistema si es 22 o superior, o el portátil ya descargado en .runtime/. No descarga nada
+# Carpeta del Node portátil (relativa a la raíz): carpeta_nodo <so> <arq>. Es también el nombre de su descarga
+carpeta_nodo() { echo ".runtime/node-v$NODO_VERSION-$1-$2"; }
+# Usa el Node de una carpeta del portátil: deja NODE y NPM apuntando a él y su bin/ al principio del PATH
+usar_nodo_portatil() { export PATH="$RAIZ/$1/bin:$PATH"; NODE="$RAIZ/$1/bin/node"; NPM="$RAIZ/$1/bin/npm"; }
+# El Node que ya hay: el del sistema si es 22 o superior, o el portátil ya descargado en .runtime/. No descarga nada;
+# solo cambia NODE, NPM y el PATH
 nodo_disponible() {
   if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ]; then
     NODE="$(command -v node)"; NPM="$(command -v npm)"; return 0
   fi
-  local so arq; so="$(so_node 2>/dev/null)" || return 1; arq="$(arq_node 2>/dev/null)" || return 1
-  DIR=".runtime/node-v$NODO_VERSION-$so-$arq"
-  [ -x "$DIR/bin/node" ] || return 1
-  export PATH="$RAIZ/$DIR/bin:$PATH"; NODE="$RAIZ/$DIR/bin/node"; NPM="$RAIZ/$DIR/bin/npm"
+  local so arq dir; so="$(so_node 2>/dev/null)" || return 1; arq="$(arq_node 2>/dev/null)" || return 1
+  dir="$(carpeta_nodo "$so" "$arq")"
+  [ -x "$dir/bin/node" ] || return 1
+  usar_nodo_portatil "$dir"
 }
 
 # superficie y enganchar no preparan nada (solo usan lo ya instalado): no esperan al cerrojo del lanzador ni descargan Node
@@ -60,14 +66,14 @@ if ! tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"; then ya_abierto_sin_cerrojo "
 # 1. Node 22+ (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
 if ! nodo_disponible; then
   SO="$(so_node)"; ARQ="$(arq_node)"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
-  DIR=".runtime/node-v$NODO_VERSION-$SO-$ARQ"
+  DIR="$(carpeta_nodo "$SO" "$ARQ")"
   amarillo "No encuentro Node 22 o superior. Descargo uno portátil para work-shelter (solo esta vez)…"
   mkdir -p .runtime
-  curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/node-v$NODO_VERSION-$SO-$ARQ.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
+  curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/${DIR#.runtime/}.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node 22 desde https://nodejs.org"; exit 1; }
   # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
   echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node 22 desde https://nodejs.org"; exit 1; }
   tar -xzf .runtime/node.tar.gz -C .runtime && rm .runtime/node.tar.gz
-  export PATH="$RAIZ/$DIR/bin:$PATH"; NODE="$RAIZ/$DIR/bin/node"; NPM="$RAIZ/$DIR/bin/npm"
+  usar_nodo_portatil "$DIR"
 fi
 
 if [ -n "$DESINSTALAR_APP" ]; then soltar_cerrojo; exec "$NODE" scripts/instalar-app-linux.mjs --desinstalar; fi
@@ -130,6 +136,8 @@ if curl -fs "http://127.0.0.1:$PUERTO/salud" >/dev/null 2>&1; then
   amarillo "Ya hay un work-shelter abierto en el puerto $PUERTO: traigo su ventana al frente."
   SERVIDOR_PID=""
 else
+  # este arranque será el dueño del servidor: desde el menú, su salida (y la del servidor) va a un shelter.log nuevo
+  if [ -n "${SHELTER_DESDE_MENU:-}" ]; then registro_desde_menu nuevo || true; fi
   amarillo "Abriendo el refugio…"
   if [ -n "${SHELTER_SIN_VENTANA:-}" ]; then "$NODE" server/supervisor.mjs &
   else SHELTER_SALIR_SIN_CLIENTES=1 "$NODE" server/supervisor.mjs & fi
@@ -160,8 +168,10 @@ if [ -n "${SHELTER_SIN_VENTANA:-}" ]; then
 elif [ -n "$ELECTRON" ] && [ -x "$ELECTRON" ]; then
   # su salida, al registro (solo legible por ti, el de la última vez); si cae nada más abrir, el navegador. Si no se
   # puede crear la carpeta del registro, sin registro (vacío): su salida se queda en esta terminal
+  # se vacía solo si este arranque es el dueño; si no, es el registro de la ventana que ya está abierta y se añade
   LOG="$(carpeta_registros)/electron.log"
-  ( umask 077; mkdir -p "${LOG%/*}" && : > "$LOG" ) 2>/dev/null || LOG=
+  if [ -n "$SERVIDOR_PID" ]; then ( umask 077; mkdir -p "${LOG%/*}" && : > "$LOG" ) 2>/dev/null || LOG=
+  else ( umask 077; mkdir -p "${LOG%/*}" && : >> "$LOG" ) 2>/dev/null || LOG=; fi
   if ! SHELTER_URL="$URL" SHELTER_CDP="${SHELTER_CDP:-}" SHELTER_DEV="${SHELTER_DEV:-}" ventana_electron "$ELECTRON" "$LOG" electron/main.cjs; then
     amarillo "Abro work-shelter en el navegador."
     abrir_url "$URL"

@@ -89,14 +89,25 @@ carpeta_registros() {
 }
 
 # Abierto desde el menú (SHELTER_DESDE_MENU) no hay terminal: lo que escribe ./shelter, errores incluidos, va desde aquí
-# a shelter.log, en la carpeta de los registros (carpeta y archivos solo legibles por ti). Cada arranque empieza uno
-# nuevo y guarda solo el anterior en shelter.log.1, así que no crece sin fin. Si no se puede crear, devuelve 1 y la
-# salida se queda donde estaba
+# a shelter.log, en la carpeta de los registros (carpeta y archivos solo legibles por ti). registro_desde_menu [nuevo]:
+# - sin nada, se añade al final: un arranque que solo trae al frente la ventana, o que espera al cerrojo, no toca lo que
+#   va escribiendo el refugio ya abierto
+# - con «nuevo» (solo el arranque que va a abrir el servidor, justo antes): el anterior pasa a shelter.log.1 y se empieza
+#   otro, así que no crece sin fin. Lo ya escrito por este arranque queda en el anterior
+# Si no se puede preparar, devuelve 1 y la salida se queda donde estaba
 registro_desde_menu() {
   local log; log="$(carpeta_registros)/shelter.log" || return 1
-  ( umask 077; mkdir -p "${log%/*}" && { [ ! -e "$log" ] || { mv -f "$log" "$log.1" && chmod 600 "$log.1"; }; } && : > "$log" && chmod 600 "$log" ) 2>/dev/null || return 1
+  (
+    umask 077
+    mkdir -p "${log%/*}" || exit 1
+    # rotar: el anterior a shelter.log.1, cerrado a 600 aunque viniera con otros permisos
+    if [ "${1:-}" = nuevo ] && [ -e "$log" ]; then mv -f "$log" "$log.1" && chmod 600 "$log.1" || exit 1; fi
+    # el que se usa: se crea si no está y queda a 600
+    : >> "$log" && chmod 600 "$log"
+  ) 2>/dev/null || return 1
+  # siempre añadiendo: tras rotar, la salida deja el archivo apartado y pasa al nuevo
   exec >>"$log" 2>&1
-  echo "== $(date '+%Y-%m-%d %H:%M:%S') · abierto desde el menú =="
+  echo "== $(date '+%Y-%m-%d %H:%M:%S') · abierto desde el menú${1:+ · este arranque abre el refugio} =="
 }
 
 # Cerrojo del lanzador: dos ./shelter a la vez (un doble clic en el menú) no pueden preparar lo mismo a la vez (npm ci,
@@ -165,20 +176,24 @@ electron_ya_descargado() {
 # <raíz> <puerto> <datos>. Dos caminos:
 # - Un servidor contesta /salud: el refugio ya está abierto. Desde la app de macOS se le pasa su dirección (la línea
 #   SHELTER_URL); si no, se lanza el Electron ya descargado, si lo está, y su cerrojo de una sola ventana
-#   (requestSingleInstanceLock en electron/main.cjs) trae al frente la que ya está. Devuelve 0.
+#   (requestSingleInstanceLock en electron/main.cjs) trae al frente la que ya está. Su salida se añade a electron.log
+#   con ventana_electron, como la de la ventana normal, sin vaciarlo (es el de la ventana abierta); si no se puede, se
+#   queda en la de aquí. Si ninguna ventana tiene ese cerrojo (un servidor sin ventana, SHELTER_SIN_VENTANA), este
+#   Electron pasa a ser la ventana y aquí se espera a que se cierre: es lo buscado. Devuelve 0.
 # - Nadie contesta: el otro aún no tiene el servidor en marcha. Lo dice y devuelve 1, para volver a intentarlo luego
 ya_abierto_sin_cerrojo() {
-  local raiz="$1" puerto="$2" token="" url bin
+  local raiz="$1" puerto="$2" datos="$3" token="" url bin log
   if ! curl -fs "http://127.0.0.1:$puerto/salud" >/dev/null 2>&1; then
     echo "Otro arranque de work-shelter sigue preparándolo y aún no ha abierto el refugio. Vuelve a intentarlo dentro de un momento." >&2
     return 1
   fi
-  { read -r token < "$3/token"; } 2>/dev/null || true
+  { read -r token < "$datos/token"; } 2>/dev/null || true
   url="http://127.0.0.1:$puerto/#t=$token"
   if [ -n "${SHELTER_DESDE_APP:-}" ]; then echo "SHELTER_URL=$url"; return 0; fi
   if [ -z "${SHELTER_SIN_VENTANA:-}" ] && bin="$(electron_ya_descargado "$raiz")"; then
     echo "Ya hay un work-shelter abierto en el puerto $puerto: traigo su ventana al frente."
-    ( cd "$raiz" && SHELTER_URL="$url" "$bin" electron/main.cjs ) >/dev/null 2>&1 || true
+    log="$(carpeta_registros)/electron.log" && ( umask 077; mkdir -p "${log%/*}" && : >> "$log" ) 2>/dev/null || log=""
+    ( cd "$raiz" && SHELTER_URL="$url" ventana_electron "$bin" "$log" electron/main.cjs ) || true
   else
     echo "Ya hay un work-shelter abierto: http://127.0.0.1:$puerto"
   fi

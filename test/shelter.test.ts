@@ -204,24 +204,44 @@ describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)',
     expect(texto).toMatch(/^== .+ ==$/m); expect(texto).toContain('hola'); expect(texto).toContain('fallo');
     expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(path.dirname(log)).mode & 0o777).toBe(0o700);
   });
-  it('cada arranque desde el menú empieza un registro nuevo y guarda solo el anterior en shelter.log.1 (no crece sin fin)', () => {
+  it('sin más, se añade al final: un arranque que solo trae al frente la ventana no rota el registro del que está abierto', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
     const env = { XDG_STATE_HOME: estado };
     bash('registro_desde_menu && echo primero', { real: true, env });
     bash('registro_desde_menu && echo segundo', { real: true, env });
+    const texto = readFileSync(log, 'utf8');
+    expect(texto).toContain('primero'); expect(texto).toContain('segundo');
+    expect(texto.indexOf('primero')).toBeLessThan(texto.indexOf('segundo'));
+    expect(existsSync(`${log}.1`)).toBe(false);
+    expect(statSync(log).mode & 0o777).toBe(0o600);
+  });
+  it('con «nuevo» (el arranque que abre el servidor) empieza un registro nuevo y guarda solo el anterior en shelter.log.1', () => {
+    const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
+    const env = { XDG_STATE_HOME: estado };
+    bash('registro_desde_menu && echo primero', { real: true, env });
+    bash('registro_desde_menu nuevo && echo segundo', { real: true, env });
     expect(readFileSync(log, 'utf8')).toContain('segundo'); expect(readFileSync(log, 'utf8')).not.toContain('primero');
     expect(readFileSync(`${log}.1`, 'utf8')).toContain('primero');
-    bash('registro_desde_menu && echo tercero', { real: true, env });
+    bash('registro_desde_menu nuevo && echo tercero', { real: true, env });
     expect(readFileSync(log, 'utf8')).toContain('tercero');
     expect(readFileSync(`${log}.1`, 'utf8')).toContain('segundo'); expect(readFileSync(`${log}.1`, 'utf8')).not.toContain('primero');
     for (const f of [log, `${log}.1`]) expect(statSync(f).mode & 0o777, f).toBe(0o600);
   });
-  it('un registro que ya existía con otros permisos pasa a shelter.log.1 cerrado a 600; el nuevo, también 600', () => {
+  it('lo ya redirigido sigue en el registro tras rotar: lo de antes queda en shelter.log.1 y lo de después en el nuevo', () => {
+    const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
+    bash('registro_desde_menu && echo antes && registro_desde_menu nuevo && echo despues', { real: true, env: { XDG_STATE_HOME: estado } });
+    expect(readFileSync(`${log}.1`, 'utf8')).toContain('antes'); expect(readFileSync(`${log}.1`, 'utf8')).not.toContain('despues');
+    expect(readFileSync(log, 'utf8')).toContain('despues'); expect(readFileSync(log, 'utf8')).not.toContain('antes');
+  });
+  it('un registro que ya existía con otros permisos queda a 600, se añada o se rote', () => {
     const estado = path.join(dir, 'estado'); const log = path.join(estado, 'work-shelter-public', 'shelter.log');
     mkdirSync(path.dirname(log), { recursive: true }); writeFileSync(log, 'viejo\n'); chmodSync(log, 0o644);
     bash('registro_desde_menu', { real: true, env: { XDG_STATE_HOME: estado } });
+    expect(statSync(log).mode & 0o777).toBe(0o600); expect(readFileSync(log, 'utf8')).toMatch(/^viejo\n/);
+    chmodSync(log, 0o644);
+    bash('registro_desde_menu nuevo', { real: true, env: { XDG_STATE_HOME: estado } });
     expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(`${log}.1`).mode & 0o777).toBe(0o600);
-    expect(readFileSync(`${log}.1`, 'utf8')).toBe('viejo\n');
+    expect(readFileSync(`${log}.1`, 'utf8')).toMatch(/^viejo\n/);
   });
   it('si no se puede crear el registro, falla y la salida se queda donde estaba', () => {
     const tapon = path.join(dir, 'tapon'); writeFileSync(tapon, '');   // un archivo donde tendría que ir la carpeta
@@ -234,6 +254,16 @@ describe('registro_desde_menu (./shelter abierto desde el menú, sin terminal)',
     expect(i).toBeGreaterThan(t.indexOf('source scripts/plataforma.sh'));
     expect(t.slice(t.lastIndexOf('\n', i), i)).toContain('SHELTER_DESDE_MENU');
     for (const paso of ['# 1. Node', 'curl ', 'npm']) expect(i).toBeLessThan(t.indexOf(paso));
+    expect(t.slice(i, t.indexOf('\n', i))).toMatch(/registro_desde_menu \|\| true/);   // al principio, sin rotar
+  });
+  it('./shelter solo rota cuando este arranque va a abrir el servidor: justo antes del supervisor, nunca con uno que contesta', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    expect(t.split('registro_desde_menu nuevo')).toHaveLength(2);
+    const rota = t.indexOf('registro_desde_menu nuevo');
+    const sinServidor = t.indexOf('\nelse\n', t.indexOf('traigo su ventana al frente'));
+    expect(sinServidor).toBeGreaterThan(0);
+    expect(rota).toBeGreaterThan(sinServidor); expect(rota).toBeLessThan(t.indexOf('server/supervisor.mjs'));
+    expect(t.slice(t.lastIndexOf('\n', rota), rota)).toContain('SHELTER_DESDE_MENU');
   });
 });
 
@@ -357,6 +387,21 @@ describe('ya_abierto_sin_cerrojo (se agotó la espera del cerrojo: nunca se prep
     expect(r.codigo).toBe(0); expect(r.salida).toContain('traigo su ventana al frente');
     expect(registro()).toEqual([SALUD, 'electron electron/main.cjs url=http://127.0.0.1:3778/#t=secreto']);
   });
+  it('la salida del Electron que trae al frente la ventana va a electron.log (añadida, solo legible por ti), no se tira', () => {
+    electronDescargado();
+    const f = path.join(juego(), 'node_modules', 'electron', 'dist', 'electron');
+    writeFileSync(f, '#!/bin/bash\necho "dice algo"\necho "y un error" >&2\n'); chmodSync(f, 0o755);
+    const log = path.join(dir, 'estado', 'work-shelter-public', 'electron.log');
+    mkdirSync(path.dirname(log), { recursive: true }); writeFileSync(log, 'de la ventana abierta\n');
+    // con mkdir y chmod de verdad (los falsos, antes en el PATH, siguen ganando)
+    const env = { XDG_STATE_HOME: path.join(dir, 'estado'), PATH: `${dir}:/usr/bin:/bin` };
+    const r = llamar(true, env);
+    expect(r.codigo).toBe(0); expect(r.salida).not.toContain('dice algo'); expect(r.error).not.toContain('y un error');
+    expect(readFileSync(log, 'utf8')).toBe('de la ventana abierta\ndice algo\ny un error\n');
+    rmSync(path.dirname(log), { recursive: true });
+    llamar(true, env);
+    expect(statSync(log).mode & 0o777).toBe(0o600); expect(statSync(path.dirname(log)).mode & 0o777).toBe(0o700);
+  });
   it('con un servidor que contesta y sin Electron descargado: no descarga nada, dice dónde está y sale con 0', () => {
     const r = llamar(true);
     expect(r.codigo).toBe(0); expect(r.salida).toContain('http://127.0.0.1:3778');
@@ -376,6 +421,35 @@ describe('ya_abierto_sin_cerrojo (se agotó la espera del cerrojo: nunca se prep
     const r = llamar(false);
     expect(r.codigo).toBe(1); expect(r.error).toMatch(/Otro arranque de work-shelter.*Vuelve a intentarlo dentro de un momento/s);
     expect(registro()).toEqual([SALUD]);
+  });
+});
+
+describe('nodo_disponible (./shelter: el Node que ya hay, sin descargar nada)', () => {
+  // las funciones del Node de ./shelter, tal cual, sin ejecutar el lanzador
+  const funciones = () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    const i = t.search(/^[a-z_]+\(\) \{/m); const fin = t.indexOf('\n}\n', t.indexOf('nodo_disponible() {'));
+    return t.slice(i, fin + 3);
+  };
+  it('con el portátil ya descargado deja NODE, NPM y el PATH apuntando a él, y no deja otras variables', () => {
+    const raiz = path.join(dir, 'raiz'); const bin = path.join(raiz, '.runtime', 'node-v22.20.0-linux-x64', 'bin');
+    mkdirSync(bin, { recursive: true }); writeFileSync(path.join(bin, 'node'), '#!/bin/bash\n'); chmodSync(path.join(bin, 'node'), 0o755);
+    writeFileSync(path.join(dir, 'funciones.sh'), funciones());
+    const r = bash(`RAIZ="${raiz}"; NODO_VERSION=22.20.0; cd "$RAIZ"; source "${path.join(dir, 'funciones.sh')}"; nodo_disponible && echo "$NODE|$NPM|\${PATH%%:*}|\${DIR-sin DIR}|\${SO-sin SO}|\${ARQ-sin ARQ}"`);
+    expect(r).toMatchObject({ codigo: 0, error: '' });
+    expect(r.salida).toBe(`${bin}/node|${bin}/npm|${bin}|sin DIR|sin SO|sin ARQ`);
+  });
+  it('sin Node del sistema ni portátil, falla sin tocar nada', () => {
+    const raiz = path.join(dir, 'raiz'); mkdirSync(raiz);
+    writeFileSync(path.join(dir, 'funciones.sh'), funciones());
+    const r = bash(`RAIZ="${raiz}"; NODO_VERSION=22.20.0; cd "$RAIZ"; source "${path.join(dir, 'funciones.sh')}"; nodo_disponible || echo "no|\${NODE-sin NODE}|\${PATH}"`);
+    expect(r.salida).toBe(`no|sin NODE|${dir}`);
+  });
+  it('la carpeta del portátil, su PATH, NODE y NPM se escriben en un solo sitio (la descarga usa lo mismo)', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    expect(t.split('export PATH=')).toHaveLength(2);
+    expect(t.split('NODE="$RAIZ/')).toHaveLength(2); expect(t.split('NPM="$RAIZ/')).toHaveLength(2);
+    expect(t.split('node-v$NODO_VERSION-')).toHaveLength(2);
   });
 });
 
