@@ -150,17 +150,38 @@ describe('huella del build y registro JSON', () => {
 });
 
 describe('cerrar la app medida', () => {
-  // una app de Playwright de mentira: apunta lo que se le pide y deja elegir si close() termina o se queda colgado
-  function falsa({ cuelga }: { cuelga: boolean }) {
+  // una app de Playwright de mentira: apunta lo que se le pide y deja elegir si close() termina o se queda colgado,
+  // cómo responde evaluate() (el proceso principal bloqueado no contesta nunca) y si el proceso ya había salido
+  function falsa({ cuelga, evaluar = 'bien', salido = false }: { cuelga: boolean; evaluar?: 'bien' | 'falla' | 'cuelga'; salido?: boolean }) {
     const log: string[] = [];
-    const proceso = { exitCode: null as number | null, kill: (s: string) => { log.push(`kill ${s}`); } };
+    const proceso = { exitCode: salido ? 0 : null as number | null, kill: (s: string) => { log.push(`kill ${s}`); } };
     const app: AppFalsa = {
       process: () => proceso,
-      evaluate: async f => { f({ BrowserWindow: { getAllWindows: () => [{ destroy: () => { log.push('destroy'); } }] } }); },
+      evaluate: f => {
+        if (evaluar === 'cuelga') return new Promise<void>(() => {});
+        if (evaluar === 'falla') return Promise.reject(new Error('sin contexto'));
+        f({ BrowserWindow: { getAllWindows: () => [{ destroy: () => { log.push('destroy'); } }] } });
+        return Promise.resolve();
+      },
       close: () => { log.push('close'); return cuelga ? new Promise<void>(() => {}) : Promise.resolve(); },
     };
     return { app, log };
   }
+  it('si el proceso principal no contesta ni a evaluate(), también mata el proceso', async () => {
+    const { app, log } = falsa({ cuelga: true, evaluar: 'cuelga' });
+    await m.cerrarApp(app, 20);
+    expect(log).toEqual(['kill SIGKILL']);
+  });
+  it('si evaluate() falla, cierra igualmente', async () => {
+    const { app, log } = falsa({ cuelga: false, evaluar: 'falla' });
+    await m.cerrarApp(app, 1000);
+    expect(log).toEqual(['close']);
+  });
+  it('no mata un proceso que ya ha salido', async () => {
+    const { app, log } = falsa({ cuelga: true, salido: true });
+    await m.cerrarApp(app, 20);
+    expect(log).toEqual(['destroy', 'close']);
+  });
   it('destruye las ventanas antes de cerrar: así no sale el aviso de «¿Salir del refugio?»', async () => {
     const { app, log } = falsa({ cuelga: false });
     await m.cerrarApp(app, 1000);

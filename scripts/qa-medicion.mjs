@@ -24,15 +24,19 @@ export async function servidor() {
 
 // Cierra la app medida sin el aviso de «¿Salir del refugio?» (electron/main.cjs, evento 'close'): ese diálogo bloquea
 // el proceso principal y dejaba la ventana abierta hasta que alguien la cerraba a mano. destroy() no emite 'close'; la
-// medición no tiene sesiones que parar (datos temporales) y el servidor lo apaga quien llama. Si aun así close() no
-// termina en `ms`, se mata el proceso: una medición nunca deja una ventana viva.
+// medición no tiene sesiones que parar (datos temporales) y el servidor lo apaga quien llama. Si destruir y cerrar no
+// terminan en `ms` (un proceso principal bloqueado no contesta ni a evaluate()), se mata el proceso: una medición nunca
+// deja una ventana viva.
 export async function cerrarApp(app, ms = 10_000) {
   if (!app) return;
   const proceso = app.process();
-  await app.evaluate(({ BrowserWindow }) => { for (const v of BrowserWindow.getAllWindows()) v.destroy(); }).catch(() => {});
   let reloj;
   const cerrada = await Promise.race([
-    app.close().then(() => true, () => true),
+    (async () => {
+      await app.evaluate(({ BrowserWindow }) => { for (const v of BrowserWindow.getAllWindows()) v.destroy(); }).catch(() => {});
+      await app.close().catch(() => {});
+      return true;
+    })(),
     new Promise(r => { reloj = setTimeout(() => r(false), ms); }),
   ]);
   clearTimeout(reloj);

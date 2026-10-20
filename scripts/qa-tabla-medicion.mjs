@@ -91,7 +91,7 @@ function resumirTiempos(porMedicion) {
 // catálogo de métricas: de dónde sale cada una en el registro y cómo se lee y se compara
 const ms = o => o ? { mediana: o.medianaMs, p95: o.p95Ms } : null;
 const solo = v => ({ mediana: v, p95: null });
-const llamadasPase = (r, cumple) => r.desglose?.porPase ? r.desglose.porPase.filter(p => cumple(p.nombre)).reduce((s, p) => s + p.llamadas, 0) : null;
+const llamadasPase = (r, cumple) => r.desglose?.porPase ? r.desglose.porPase.filter(p => cumple(p.nombre ?? '')).reduce((s, p) => s + p.llamadas, 0) : null;
 const TIEMPOS_COSTE = [
   { id: 'fotograma', etiqueta: 'Fotograma, CPU con espera a la GPU (ms)', leer: r => ms(r) },
   { id: 'conSombra', etiqueta: '… con mapa de sombras (ms)', leer: r => ms(r.conSombra) },

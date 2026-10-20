@@ -212,3 +212,19 @@ describe('la tabla en Markdown', () => {
     expect(ok.stdout).toContain('### Candidato');
   });
 });
+
+describe('contrato con los guiones de medición', () => {
+  // dos registros tal cual los escribieron qa-coste-electron y qa-bucle-electron (base de la fase 3): si un guion
+  // cambia el nombre de un campo, la tabla no puede quedarse en silencio con «sin datos»
+  const fixture = fileURLToPath(new URL('fixtures/medicion-electron.jsonl', import.meta.url));
+  it('los registros reales llenan todas las filas', () => {
+    const md = t.generar([fixture]);
+    expect(md).not.toMatch(/sin datos|no medible/);
+    expect(md).toContain('qa-coste-electron, 1 mediciones');
+    expect(md).toContain('qa-bucle-electron, 1 mediciones');
+  });
+  it('un pase del desglose sin nombre no rompe la tabla', () => {
+    const r = coste(A, 10, 20, { desglose: { total: { llamadas: 3, triangulos: 3 }, porPase: [{ llamadas: 2, triangulos: 2 }, { nombre: 'post 1: X', llamadas: 1, triangulos: 1 }], porGrupo: {} } });
+    expect(() => t.resumirCandidato({ hash: A, registros: [r] })).not.toThrow();
+  });
+});
