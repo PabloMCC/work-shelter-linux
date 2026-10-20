@@ -20,13 +20,13 @@ export function tokenDeGh(): Promise<string | null> {
 
 class GitHub extends ConectorBase {
   id = 'github' as const;
-  intervaloMs = 60_000;
+  override intervaloMs = 60_000;
   private modificado: string | null = null;
   private ultimas: Notificacion[] = [];
   private quien: string | null = null;
   private delGh = false;
   constructor(almacen: Almacen) { super(almacen, new ConfigFuente(almacen, 'github', CAMPOS_GITHUB)); }
-  protected alReiniciar() { this.modificado = null; this.ultimas = []; this.quien = null; this.delGh = false; }
+  protected override alReiniciar() { this.modificado = null; this.ultimas = []; this.quien = null; this.delGh = false; }
 
   private async token(v?: string): Promise<string> {
     const t = v || await this.config.secreto('token');
@@ -42,7 +42,7 @@ class GitHub extends ConectorBase {
     if (r.estado >= 400) throw new ErrorFuente(explicarErrorGitHub(r.estado, r.json));
     return r;
   }
-  protected listo() { return true; }   // sin token puede valer la sesión de gh: lo dice el sondeo
+  protected override listo() { return true; }   // sin token puede valer la sesión de gh: lo dice el sondeo
 
   protected async sondearReal() {
     const token = await this.token();

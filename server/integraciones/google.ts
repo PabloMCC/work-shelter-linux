@@ -31,7 +31,7 @@ export const haySesionGoogle = () => leerSecreto(CUENTA_SESION).then(v => !!v, (
 
 class Google extends ConectorBase {
   id = 'google' as const;
-  intervaloMs = 60_000;
+  override intervaloMs = 60_000;
   private acceso: { token: string; caduca: number } | null = null;
   private correo: string | null = null;
   private sesion = false;
@@ -41,10 +41,10 @@ class Google extends ConectorBase {
   constructor(almacen: Almacen) { super(almacen, new ConfigFuente(almacen, 'google', CAMPOS_GOOGLE)); }
   private get cliente() { return this.config.publicos().clientId ?? ''; }
 
-  protected listo() { return this.config.listo() && this.sesion; }
-  protected faltaConfig() { return this.config.listo() ? SIN_SESION : SIN_CLIENTE; }
-  protected alReiniciar() { this.acceso = null; this.correo = null; this.ultimoCalendario = 0; this.metadatos.clear(); }
-  async sondear() { this.sesion = await haySesionGoogle(); return super.sondear(); }
+  protected override listo() { return this.config.listo() && this.sesion; }
+  protected override faltaConfig() { return this.config.listo() ? SIN_SESION : SIN_CLIENTE; }
+  protected override alReiniciar() { this.acceso = null; this.correo = null; this.ultimoCalendario = 0; this.metadatos.clear(); }
+  override async sondear() { this.sesion = await haySesionGoogle(); return super.sondear(); }
 
   // ------------------------------------------------ OAuth
   private async token(cuerpo: Record<string, string>) {
@@ -131,11 +131,11 @@ class Google extends ConectorBase {
     try { this.acceso = null; this.correo = null; return { ok: true, detalle: `Conectado como ${await this.quienSoy()}.` }; }
     catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
-  async accion(nombre: string, d: Record<string, any>) {
+  override async accion(nombre: string, d: Record<string, any>) {
     if (nombre === 'olvidar') await borrarSecreto(CUENTA_SESION);
     return super.accion(nombre, d);
   }
-  protected async accionPropia(nombre: string, d: Record<string, any>) {
+  protected override async accionPropia(nombre: string, d: Record<string, any>) {
     if (nombre === 'conectar') {
       const url = await this.iniciarSesion();
       if (d.abrir !== false) abrirUrl(url);   // navegador del sistema
@@ -144,7 +144,7 @@ class Google extends ConectorBase {
     if (nombre === 'desconectar') { await borrarSecreto(CUENTA_SESION); this.sesion = false; this.reiniciar(); this.avisar?.('estado'); return this.estado(); }
     return super.accionPropia(nombre, d);
   }
-  parar() { super.parar(); this.escucha?.parar(); }
+  override parar() { super.parar(); this.escucha?.parar(); }
 }
 
 export function crear(almacen: Almacen) { return new Google(almacen); }
