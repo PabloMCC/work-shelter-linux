@@ -6,7 +6,12 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-type Resumen = { n: number; medianaMs: number | null; p95Ms: number | null };
+type AppFalsa = {
+  process(): { exitCode: number | null; kill(senal: string): void };
+  evaluate(f: (e: { BrowserWindow: { getAllWindows(): { destroy(): void }[] } }) => void): Promise<void>;
+  close(): Promise<void>;
+};
+type Resumen ={ n: number; medianaMs: number | null; p95Ms: number | null };
 type Cubo = { nombre: string; llamadas: number; triangulos: number; grupos?: number };
 type Medicion = {
   percentil(ordenados: number[], p: number): number | null;
@@ -21,6 +26,7 @@ type Medicion = {
   huellaBuild(dir: string): { indexHtml: string | null; entrada: string | null; entradaSha256: string | null };
   crearRegistro(d: { guion: string; fecha: Date; commit: { hash: string | null; sucio: boolean }; build: object; opciones: object; resultado: object }): Record<string, unknown>;
   anadirJson(ruta: string, registro: object): void;
+  cerrarApp(app: AppFalsa | undefined, ms?: number): Promise<void>;
   nuevos(antes: number | null, despues: number | null): number | null;
   cifra(x: number | null | undefined, sufijo?: string): string;
 };
@@ -140,5 +146,32 @@ describe('huella del build y registro JSON', () => {
     const ruta = join(dir, 'm.jsonl');
     m.anadirJson(ruta, r); m.anadirJson(ruta, { otra: 1 });
     expect(readFileSync(ruta, 'utf8').trim().split('\n').map(l => JSON.parse(l) as unknown)).toEqual([r, { otra: 1 }]);
+  });
+});
+
+describe('cerrar la app medida', () => {
+  // una app de Playwright de mentira: apunta lo que se le pide y deja elegir si close() termina o se queda colgado
+  function falsa({ cuelga }: { cuelga: boolean }) {
+    const log: string[] = [];
+    const proceso = { exitCode: null as number | null, kill: (s: string) => { log.push(`kill ${s}`); } };
+    const app: AppFalsa = {
+      process: () => proceso,
+      evaluate: async f => { f({ BrowserWindow: { getAllWindows: () => [{ destroy: () => { log.push('destroy'); } }] } }); },
+      close: () => { log.push('close'); return cuelga ? new Promise<void>(() => {}) : Promise.resolve(); },
+    };
+    return { app, log };
+  }
+  it('destruye las ventanas antes de cerrar: así no sale el aviso de «¿Salir del refugio?»', async () => {
+    const { app, log } = falsa({ cuelga: false });
+    await m.cerrarApp(app, 1000);
+    expect(log).toEqual(['destroy', 'close']);
+  });
+  it('si close() se queda colgado, mata el proceso en vez de dejar la ventana abierta', async () => {
+    const { app, log } = falsa({ cuelga: true });
+    await m.cerrarApp(app, 20);
+    expect(log).toEqual(['destroy', 'close', 'kill SIGKILL']);
+  });
+  it('sin app (Electron no llegó a arrancar) no hace nada', async () => {
+    await expect(m.cerrarApp(undefined)).resolves.toBeUndefined();
   });
 });

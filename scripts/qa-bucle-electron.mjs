@@ -16,7 +16,7 @@ import { _electron } from 'playwright';
 import electron from 'electron';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { servidor, leerOpciones, resumen, intervalos, huellaBuild, commitActual, crearRegistro, anadirJson, nuevos, cifra } from './qa-medicion.mjs';
+import { servidor, leerOpciones, resumen, intervalos, huellaBuild, commitActual, crearRegistro, anadirJson, nuevos, cifra, cerrarApp } from './qa-medicion.mjs';
 
 let opciones;
 try { opciones = leerOpciones(process.argv.slice(2)); } catch (e) { console.error(e.message); process.exit(2); }
@@ -88,8 +88,8 @@ async function medir() {
     };
   } finally {
     // también si Electron no ha llegado a arrancar: que no quede el servidor vivo ocupando el puerto
-    await app?.close().catch(() => {});
-    // la ventana, al cerrarse, ya pide al servidor que se apague: solo se espera si aún sigue vivo
+    await cerrarApp(app);
+    // sin el aviso de salida la ventana no pide al servidor que se apague: se apaga aquí si sigue vivo
     if (s.p.exitCode === null && s.p.signalCode === null) { s.p.kill('SIGINT'); await new Promise(r => s.p.once('exit', r)); }
     rmSync(s.datos, { recursive: true, force: true });
   }
