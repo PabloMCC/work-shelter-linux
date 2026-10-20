@@ -27,8 +27,8 @@ const programa = (nombre: string, cuerpo = 'exit 0', donde = bin) => {
 };
 const osRelease = (texto: string) => escribir(path.join(raiz, 'etc', 'os-release'), texto);
 const sysctl = (nombre: string, valor: string) => escribir(path.join(raiz, 'proc', 'sys', nombre), `${valor}\n`);
-// lo obligatorio presente: curl, git, tar, Node 22 y claude
-const obligatorio = () => { for (const p of ['curl', 'git', 'tar', 'claude']) programa(p); programa('node', 'echo 22.20.0'); };
+// lo obligatorio presente: curl, git, tar, Node 24 y claude
+const obligatorio = () => { for (const p of ['curl', 'git', 'tar', 'claude']) programa(p); programa('node', 'echo 24.22.0'); };
 
 type Opciones = { s?: string; m?: string; env?: Record<string, string>; antes?: string };
 const entorno = (o: Opciones) => ({
@@ -122,12 +122,12 @@ describe('el diagnóstico entero', () => {
     programa('claude', 'exit 0', path.join(dir, 'casa', '.local', 'bin'));
     expect(doctor().codigo).toBe(0);
   });
-  it('sin Node 22 vale si se puede descargar el portátil; en una arquitectura sin él, ✗', () => {
-    obligatorio(); programa('node', 'echo 20.20.2'); programa('sha256sum'); osRelease('ID=arch\n');
+  it('con Node 22 (no llega) vale si se puede descargar el portátil; en una arquitectura sin él, ✗', () => {
+    obligatorio(); programa('node', 'echo 22.20.0'); programa('sha256sum'); osRelease('ID=arch\n');
     const r = doctor();
-    expect(r.codigo).toBe(0); expect(linea(r.salida, '✓ Node')).toMatch(/✓.*20\.20\.2.*descargará el oficial \(22\.20\.0\)/);
+    expect(r.codigo).toBe(0); expect(linea(r.salida, '✓ Node')).toMatch(/✓.*tienes el 22\.20\.0, que no llega.*descargará el oficial \(24\.22\.0\)/);
     const r2 = doctor({ m: 'riscv64' });
-    expect(r2.codigo).toBe(1); expect(linea(r2.salida, '✗ Node')).toContain('Node 22 o superior'); expect(r2.salida).toContain('https://nodejs.org');
+    expect(r2.codigo).toBe(1); expect(linea(r2.salida, '✗ Node')).toContain('Node 24 o superior'); expect(r2.salida).toContain('https://nodejs.org');
   });
   it('en macOS: sin aislamiento ni opcionales de Linux, y 0 con lo obligatorio', () => {
     obligatorio();

@@ -46,12 +46,12 @@ describe('shellDeUsuario', () => {
 });
 
 describe('rutasExtra', () => {
-  const leer = (dir: string) => (dir === '/repo/.runtime' ? ['node-v22.20.0-darwin-arm64', 'node-v22.20.0-linux-x64', 'node.tar.gz', 'otra'] : []);
+  const leer = (dir: string) => (dir === '/repo/.runtime' ? ['node-v24.22.0-darwin-arm64', 'node-v24.22.0-linux-x64', 'node.tar.gz', 'otra'] : []);
   it('en macOS, las de siempre: ~/.local/bin, Homebrew, /usr/local/bin y solo el Node portátil de macOS', () => {
-    expect(p.rutasExtra('darwin', '/casa', '/repo', leer)).toEqual(['/casa/.local/bin', '/opt/homebrew/bin', '/usr/local/bin', '/repo/.runtime/node-v22.20.0-darwin-arm64/bin']);
+    expect(p.rutasExtra('darwin', '/casa', '/repo', leer)).toEqual(['/casa/.local/bin', '/opt/homebrew/bin', '/usr/local/bin', '/repo/.runtime/node-v24.22.0-darwin-arm64/bin']);
   });
   it('en Linux, ~/.local/bin y solo el Node portátil de Linux, sin Homebrew', () => {
-    expect(p.rutasExtra('linux', '/casa', '/repo', leer)).toEqual(['/casa/.local/bin', '/repo/.runtime/node-v22.20.0-linux-x64/bin']);
+    expect(p.rutasExtra('linux', '/casa', '/repo', leer)).toEqual(['/casa/.local/bin', '/repo/.runtime/node-v24.22.0-linux-x64/bin']);
   });
   it('sin repo o sin .runtime, solo las fijas', () => {
     expect(p.rutasExtra('linux', '/casa', undefined, leer)).toEqual(['/casa/.local/bin']);

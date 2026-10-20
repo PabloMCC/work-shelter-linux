@@ -75,15 +75,15 @@ describe('suma_node', () => {
       expect(r.codigo).toBe(0); expect(r.salida).toMatch(/^[0-9a-f]{64}$/); sumas.add(r.salida);
     }
     expect(sumas.size).toBe(4);
-    expect(bash('suma_node 22.20.0 linux x64').salida).toBe('eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29');
-    expect(bash('suma_node 22.20.0 darwin arm64').salida).toBe('cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949');
+    expect(bash('suma_node 24.22.0 linux x64').salida).toBe('28ea0a438de9a13bd7891fd758eee6c7819ee8af5442dfd8d45bd65e56d4228c');
+    expect(bash('suma_node 24.22.0 darwin arm64').salida).toBe('6a9724d9b50a5f22b4816cded441b5a8d9ddae546191a5e5b7efa5a5e2ee26d5');
   });
   it('otra versión sin sus sumas se niega antes de descargar, con un mensaje que la nombra', () => {
-    const r = bash('suma_node 22.21.0 linux x64');
-    expect(r.codigo).not.toBe(0); expect(r.salida).toBe(''); expect(r.error).toContain('22.21.0');
+    const r = bash('suma_node 24.21.0 linux x64');
+    expect(r.codigo).not.toBe(0); expect(r.salida).toBe(''); expect(r.error).toContain('24.21.0');
   });
   it('sin suma conocida se niega (nunca se descarga nada sin comprobar)', () => {
-    for (const par of ['22.20.0 linux riscv64', '22.20.0 win x64', '22.20.0 darwin', 'linux x64', '']) {
+    for (const par of ['24.22.0 linux riscv64', '24.22.0 win x64', '24.22.0 darwin', 'linux x64', '']) {
       const r = bash(`suma_node ${par}`);
       expect(r.codigo).not.toBe(0); expect(r.salida).toBe('');
     }
@@ -435,17 +435,17 @@ describe('nodo_disponible (./shelter: el Node que ya hay, sin descargar nada)', 
     return t.slice(i, fin + 3);
   };
   it('con el portátil ya descargado deja NODE, NPM y el PATH apuntando a él, y no deja otras variables', () => {
-    const raiz = path.join(dir, 'raiz'); const bin = path.join(raiz, '.runtime', 'node-v22.20.0-linux-x64', 'bin');
+    const raiz = path.join(dir, 'raiz'); const bin = path.join(raiz, '.runtime', 'node-v24.22.0-linux-x64', 'bin');
     mkdirSync(bin, { recursive: true }); writeFileSync(path.join(bin, 'node'), '#!/bin/bash\n'); chmodSync(path.join(bin, 'node'), 0o755);
     writeFileSync(path.join(dir, 'funciones.sh'), funciones());
-    const r = bash(`RAIZ="${raiz}"; NODO_VERSION=22.20.0; cd "$RAIZ"; source "${path.join(dir, 'funciones.sh')}"; nodo_disponible && echo "$NODE|$NPM|\${PATH%%:*}|\${DIR-sin DIR}|\${SO-sin SO}|\${ARQ-sin ARQ}"`);
+    const r = bash(`RAIZ="${raiz}"; NODO_VERSION=24.22.0; cd "$RAIZ"; source "${path.join(dir, 'funciones.sh')}"; nodo_disponible && echo "$NODE|$NPM|\${PATH%%:*}|\${DIR-sin DIR}|\${SO-sin SO}|\${ARQ-sin ARQ}"`);
     expect(r).toMatchObject({ codigo: 0, error: '' });
     expect(r.salida).toBe(`${bin}/node|${bin}/npm|${bin}|sin DIR|sin SO|sin ARQ`);
   });
   it('sin Node del sistema ni portátil, falla sin tocar nada', () => {
     const raiz = path.join(dir, 'raiz'); mkdirSync(raiz);
     writeFileSync(path.join(dir, 'funciones.sh'), funciones());
-    const r = bash(`RAIZ="${raiz}"; NODO_VERSION=22.20.0; cd "$RAIZ"; source "${path.join(dir, 'funciones.sh')}"; nodo_disponible || echo "no|\${NODE-sin NODE}|\${PATH}"`);
+    const r = bash(`RAIZ="${raiz}"; NODO_VERSION=24.22.0; cd "$RAIZ"; source "${path.join(dir, 'funciones.sh')}"; nodo_disponible || echo "no|\${NODE-sin NODE}|\${PATH}"`);
     expect(r.salida).toBe(`no|sin NODE|${dir}`);
   });
   it('la carpeta del portátil, su PATH, NODE y NPM se escriben en un solo sitio (la descarga usa lo mismo)', () => {

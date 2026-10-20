@@ -18,7 +18,7 @@ arq_node() {
   case "$m" in
     x86_64|amd64) echo x64 ;;
     arm64|aarch64) echo arm64 ;;
-    *) printf 'No hay un Node portátil para esta arquitectura («%s»): instala Node 22 desde https://nodejs.org\n' "$m" >&2; return 1 ;;
+    *) printf 'No hay un Node portátil para esta arquitectura («%s»): instala Node 24 desde https://nodejs.org\n' "$m" >&2; return 1 ;;
   esac
 }
 
@@ -27,11 +27,11 @@ arq_node() {
 # añadir aquí las sumas de la nueva falla antes de descargar nada.
 suma_node() {
   case "${1:-}-${2:-}-${3:-}" in
-    22.20.0-darwin-arm64) echo cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949 ;;
-    22.20.0-darwin-x64) echo 00df9c5df3e4ec6848c26b70fb47bf96492f342f4bed6b17f12d99b3a45eeecc ;;
-    22.20.0-linux-arm64) echo 4181609e03dcb9880e7e5bf956061ecc0503c77a480c6631d868cb1f65a2c7dd ;;
-    22.20.0-linux-x64) echo eeaccb0378b79406f2208e8b37a62479c70595e20be6b659125eb77dd1ab2a29 ;;
-    *) printf 'No conozco la suma oficial de Node v%s para «%s %s»: no lo descargo. Instala Node 22 desde https://nodejs.org\n' "${1:-}" "${2:-}" "${3:-}" >&2; return 1 ;;
+    24.22.0-darwin-arm64) echo 6a9724d9b50a5f22b4816cded441b5a8d9ddae546191a5e5b7efa5a5e2ee26d5 ;;
+    24.22.0-darwin-x64) echo 495e3f273c645f3c4677d438304cdfc701729ea5dec5728f5c8e76a2dece4b91 ;;
+    24.22.0-linux-arm64) echo b7e7991d5407815adfa74a2a9cd4db683552c8ce32ff4a295c22e972849c3f5d ;;
+    24.22.0-linux-x64) echo 28ea0a438de9a13bd7891fd758eee6c7819ee8af5442dfd8d45bd65e56d4228c ;;
+    *) printf 'No conozco la suma oficial de Node v%s para «%s %s»: no lo descargo. Instala Node 24 desde https://nodejs.org\n' "${1:-}" "${2:-}" "${3:-}" >&2; return 1 ;;
   esac
 }
 

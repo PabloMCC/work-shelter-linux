@@ -29,7 +29,7 @@ Está pensado como aplicación local para una sola persona en su equipo:
 - **Una sola instancia**: una sola ventana del juego (otro arranque trae al frente la que ya hay) y un solo `./shelter`
   preparando a la vez (un cerrojo en `.runtime/`), para que dos arranques seguidos no instalen las dependencias a la
   vez.
-- **El Node portátil**: si no tienes Node 22, `./shelter` descarga el oficial y comprueba su suma SHA-256, fijada en el
+- **El Node portátil**: si no tienes Node 24, `./shelter` descarga el oficial y comprueba su suma SHA-256, fijada en el
   repo para cada versión y sistema, antes de usarlo; sin suma conocida no descarga nada.
 - **Archivos**: el explorador, el cliente de git y los adjuntos trabajan dentro de las carpetas de las salas. Borrar es
   mandar a la papelera del sistema (`gio trash` en Linux); sin papelera no se borra.
