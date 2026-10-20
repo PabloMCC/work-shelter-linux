@@ -55,6 +55,17 @@ export class Motor {
     this.scene.environmentRotation.set(0, Math.PI * 0.15, 0);
 
     this.montarPostproceso();
+    // contador de fps, CPU y GPU (stats-gl) solo en desarrollo y con ?stats: dentro de este if, el build lo quita
+    // entero. Se le da el contexto y no el renderer para que no envuelva renderer.render, que el composer llama varias
+    // veces por fotograma; mide paso() entero con begin/end
+    if (import.meta.env.DEV && DEPURAR.has('stats')) {
+      void import('stats-gl').then(async ({ default: Stats }) => {
+        const stats = new Stats({ trackGPU: true });
+        await stats.init(this.renderer.getContext());
+        document.body.appendChild(stats.dom);
+        this.stats = stats;
+      }).catch((e: unknown) => console.warn('stats-gl no ha arrancado:', e));
+    }
     window.addEventListener('resize', () => this.redimensionar());
     this.redimensionar();
   }
@@ -76,6 +87,7 @@ export class Motor {
 
   sombrasCongeladas = false;
   private cuadro = 0;
+  private stats?: { begin(): void; end(): void; update(): void };
 
   redimensionar() {
     const w = this.contenedor.clientWidth || window.innerWidth, h = this.contenedor.clientHeight || window.innerHeight;
@@ -109,6 +121,7 @@ export class Motor {
   }
 
   paso(dt: number) {
+    this.stats?.begin();
     dt = Math.min(dt, 0.1);
     this.t += dt;
     for (const f of this.alActualizar) f(dt, this.t);
@@ -119,6 +132,8 @@ export class Motor {
     if (this.sombrasCongeladas) r.shadowMap.needsUpdate = this.cuadro % 6 === 0;
     else r.shadowMap.needsUpdate = this.cuadro % 3 === 0;
     this.composer.render(dt);
+    this.stats?.end();
+    this.stats?.update();
   }
 
   arrancar() {
