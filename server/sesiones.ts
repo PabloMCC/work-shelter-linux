@@ -13,6 +13,7 @@ import { query, listSessions, getSessionMessages, getSessionInfo, type Query, ty
 import type { ResumenSesion, EntradaCuaderno, PeticionPendiente, Ayudante, OpcionesTrabajo, ElementoHistorial, Comando, Pregunta, Adjunto } from '../shared/protocolo.ts';
 import { separarAdjuntos, type Adjuntos } from './adjuntos.ts';
 import { CARPETAS_SALAS } from './estado.ts';
+import { buscarClaude } from './plataforma.ts';
 import { describirHerramienta, describirEntrada, tituloPermiso, modoHerramienta, rutaHerramienta, esAgente } from './herramientas.ts';
 
 const ANEXO = [
@@ -78,7 +79,7 @@ export interface ResolutorSalas {
 
 export function rutaClaude(): string | undefined {
   if (process.env.CLAUDE_BIN && existsSync(process.env.CLAUDE_BIN)) return process.env.CLAUDE_BIN;
-  try { return execFileSync('/bin/zsh', ['-lc', 'command -v claude'], { encoding: 'utf8', timeout: 5000 }).trim() || undefined; } catch { return undefined; }
+  return buscarClaude();
 }
 export function versionClaude(bin?: string) { try { return bin ? execFileSync(bin, ['--version'], { encoding: 'utf8', timeout: 8000 }).trim() : undefined; } catch { return undefined; } }
 

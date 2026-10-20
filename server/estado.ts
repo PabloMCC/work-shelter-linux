@@ -1,5 +1,5 @@
 // Estado persistente del refugio (en local, en .data/refugio.json): salas, habitantes, disposición, ajustes,
-// progreso del jugador, récords, notificaciones vistas. Las credenciales NO van aquí (llavero de macOS).
+// progreso del jugador, récords, notificaciones vistas. Las credenciales NO van aquí (llavero del sistema).
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -11,6 +11,7 @@ import { sanearAspecto, type Aspecto } from '../shared/aspecto.ts';
 import { FUENTES } from './integraciones/adaptadores.ts';
 import { sanearDecorado, type Decorado } from '../shared/decorado.ts';
 import { rutaEjemplo } from './ejemplos.ts';
+import { raizDatos } from './plataforma.ts';
 
 export const DATOS = path.resolve(process.env.SHELTER_DATOS || path.join(import.meta.dirname, '..', '.data'));
 
@@ -77,7 +78,7 @@ export function estadoInicial(): EstadoRefugio {
 // ala, el propio juego) o, en las salas especiales (logística, comunicaciones, hidroponía…), una propia fuera de
 // cualquier repo, para que Claude Code no herede el git ni el CLAUDE.md del juego. Con SHELTER_DATOS (pruebas), dentro
 // de esos datos.
-export const CARPETAS_SALAS = process.env.SHELTER_DATOS ? path.join(DATOS, 'salas') : path.join(os.homedir(), 'Library', 'Application Support', 'work-shelter-public', 'salas');
+export const CARPETAS_SALAS = process.env.SHELTER_DATOS ? path.join(DATOS, 'salas') : path.join(raizDatos(), 'salas');
 export function carpetaDe(s: SalaGuardada) { return s.ruta ?? path.join(CARPETAS_SALAS, s.id); }
 /** Salas de servicio de serie que le faltan a un refugio guardado: entran en su sitio (el resto se recoloca). */
 export function anadirSalasDeServicio(e: EstadoRefugio) {

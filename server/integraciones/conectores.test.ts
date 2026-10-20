@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
 import type { Almacen } from '../estado.ts';
-import { llaveroMemoria, usarLlavero, llaveroMac } from './llavero.ts';
+import { llaveroMemoria, usarLlavero, llaveroSistema } from './llavero.ts';
 import { crear as crearLinear, mcpLinear, entornoMcpLinear } from './linear.ts';
 import { crear as crearOutlook } from './outlook.ts';
 import { ZONA } from './normalizar.ts';
@@ -26,7 +26,7 @@ const tokenFalso = (firma: string) => [Buffer.from('1558182258278531074').toStri
 const resp = (cuerpo: unknown, estado = 200, cabeceras: Record<string, string> = {}) => new Response(typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo), { status: estado, headers: cabeceras });
 let llavero: ReturnType<typeof llaveroMemoria>;
 beforeEach(() => { llavero = llaveroMemoria(); usarLlavero(llavero); });
-afterEach(() => { vi.unstubAllGlobals(); usarLlavero(llaveroMac); });
+afterEach(() => { vi.unstubAllGlobals(); usarLlavero(llaveroSistema); });
 
 describe('Linear', () => {
   beforeEach(() => {
