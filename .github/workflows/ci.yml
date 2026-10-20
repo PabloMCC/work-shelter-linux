@@ -1,5 +1,5 @@
 # Comprobación de cada cambio en Linux y macOS: instala con pnpm (solo ejecutan scripts de instalación los paquetes
-# de allowBuilds en pnpm-workspace.yaml) y pasa el typecheck y los tests. Las acciones van fijadas por hash de commit
+# de allowBuilds en pnpm-workspace.yaml) y pasa el typecheck, el linter y los tests. Las acciones van fijadas por hash de commit
 # (una etiqueta se puede mover; un hash no) con la versión al lado.
 name: CI
 
@@ -46,6 +46,9 @@ jobs:
 
       - name: Typecheck
         run: pnpm run typecheck
+
+      - name: Linter
+        run: pnpm lint
 
       - name: Tests
         run: pnpm test
