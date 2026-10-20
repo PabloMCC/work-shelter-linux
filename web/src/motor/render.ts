@@ -45,7 +45,11 @@ export class Motor {
 
     // Luz de entorno suave (como en los previews oficiales): da volumen a los personajes sin aplanarlos
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    // three r183 bajó la sala 3,5 unidades (mrdoob/three.js#32646) y el refugio salía un 8 % más claro: se deja donde
+    // estaba, que es el aspecto elegido
+    const sala = new RoomEnvironment();
+    sala.position.y = 0;
+    const env = pmrem.fromScene(sala, 0.04).texture;
     this.scene.environment = env;
     this.scene.environmentIntensity = 0.24;
     this.scene.environmentRotation.set(0, Math.PI * 0.15, 0);
