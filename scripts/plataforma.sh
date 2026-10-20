@@ -143,6 +143,61 @@ sha512_comprobar() {
 # reglas que borrar_nodos_viejos: borrar_pnpm_viejos <raíz> <carpeta nueva, .runtime/…> <so> <arq>
 borrar_pnpm_viejos() { borrar_versiones_viejas pnpm- "$@"; }
 
+# Coloca de golpe lo que trae un paquete .tar.gz ya comprobado (el Node portátil, pnpm). Extraer directamente en la
+# carpeta final no vale: tar crea el ejecutable con su permiso antes de terminar de escribirlo, y si el lanzador muere a
+# mitad (ventana cerrada, SIGKILL, apagón) el siguiente arranque vería un ejecutable truncado, lo daría por bueno con
+# [ -x ] y fallaría siempre. Por eso se extrae en una hermana, <final>.parcial, se mira que el ejecutable esté y se
+# pueda ejecutar, y solo entonces se renombra a la final (mv dentro de la misma .runtime/, que es atómico): en la final
+# solo puede aparecer una carpeta completa. Lo que deje una muerte a mitad es la .parcial, que borra borrar_parciales.
+# instalar_extraido <paquete> <carpeta final, …/.runtime/<nombre>> <ejecutable, relativo a la final> <carpeta de lo
+# extraído que pasa a ser la final, o «.» si es todo> [argumentos de tar…]. Si algo falla, borra la .parcial, deja la
+# final como estaba y devuelve 1. Una final que ya existe es de una instalación sin ejecutable (si no, no se llamaría):
+# se sustituye justo antes del mv, que si no la metería dentro de ella
+instalar_extraido() {
+  local paquete="${1:-}" final="${2:-}" ejecutable="${3:-}" origen="${4:-}" padre nombre parcial desde
+  [ -n "$paquete" ] && [ -n "$final" ] && [ -n "$ejecutable" ] && [ -n "$origen" ] || return 1
+  shift 4
+  # la final, siempre una carpeta directamente dentro de .runtime/ y nunca una .parcial
+  padre="${final%/*}"; nombre="${final##*/}"
+  [ "$padre" != "$final" ] && [ "${padre##*/}" = .runtime ] || return 1
+  case "$nombre" in ''|.|..|*.parcial) return 1 ;; esac
+  # el origen, dentro de lo extraído
+  case "$origen" in /*|..|../*|*/..|*/../*) return 1 ;; esac
+  parcial="$final.parcial"
+  if [ "$origen" = . ]; then desde="$parcial"; else desde="$parcial/$origen"; fi
+  rm -rf "$parcial" || return 1
+  # ${1+"$@"}: sin argumentos de tar, nada (el bash 3.2 de macOS con set -u no acepta "$@" vacío en todos los casos)
+  if mkdir "$parcial" && tar -xzf "$paquete" -C "$parcial" ${1+"$@"} \
+    && [ -f "$desde/$ejecutable" ] && [ -x "$desde/$ejecutable" ] \
+    && rm -rf "$final" && mv "$desde" "$final"; then
+    rm -rf "$parcial" || true   # con el origen «.» ya no está; si no, lo que sobró del paquete
+    return 0
+  fi
+  rm -rf "$parcial" || true
+  return 1
+}
+
+# Borra lo que dejó una instalación interrumpida (instalar_extraido): borrar_parciales <raíz> <prefijo>, con prefijo
+# node-v o pnpm- (cada paso del lanzador limpia lo suyo antes de decidir si descarga). Solo carpetas (nunca un enlace)
+# <raíz>/.runtime/<prefijo><versión>-<so>-<arq>.parcial con una versión de números y puntos. borrar_nodos_viejos y
+# borrar_pnpm_viejos no las tocan: su patrón termina en -<so>-<arq>. Sin raíz o con otro prefijo no borra nada y
+# devuelve 1
+borrar_parciales() {
+  local raiz="${1:-}" prefijo="${2:-}" d n v
+  [ -n "$raiz" ] || return 1
+  case "$prefijo" in node-v|pnpm-) ;; *) return 1 ;; esac
+  # sin coincidencias, el patrón queda tal cual y no es una carpeta: no se borra nada
+  for d in "$raiz/.runtime/$prefijo"*.parcial; do
+    [ -d "$d" ] && [ ! -L "$d" ] || continue
+    n="${d##*/}"; v="${n#"$prefijo"}"; v="${v%.parcial}"
+    case "$v" in *?-?*-?*) ;; *) continue ;; esac   # <versión>-<so>-<arq>
+    v="${v%%-*}"
+    case "$v" in ''|*[!0-9.]*|.*|*.|*..*) continue ;; esac   # solo versiones x.y.z de números
+    rm -rf "$d" || true
+  done
+  return 0
+}
+
 # Comprueba líneas «SUMA  archivo» que llegan por la entrada: sha256sum (Linux) o, si no está, shasum (macOS)
 sha256_comprobar() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum -c -

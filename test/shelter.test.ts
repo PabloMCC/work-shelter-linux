@@ -3,8 +3,8 @@
 // de macOS que en uno de Linux. Nunca se ejecuta ./shelter.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, truncateSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -485,11 +485,12 @@ describe('borrar_nodos_viejos (al subir NODO_VERSION, el portátil anterior no s
   };
   const queda = (n: string) => existsSync(path.join(runtime(), n));
   it('borra el anterior del mismo sistema y arquitectura; deja el nuevo, los de otra arquitectura y lo demás', () => {
-    preparar(['node-v22.20.0-linux-x64', 'node-v24.9.0-linux-x64', 'node-v24.22.0-linux-x64', 'node-v22.20.0-linux-arm64', 'node-v22.20.0-darwin-x64', 'nodejunk', 'node-vX-linux-x64']);
+    preparar(['node-v22.20.0-linux-x64', 'node-v24.9.0-linux-x64', 'node-v24.22.0-linux-x64', 'node-v22.20.0-linux-arm64', 'node-v22.20.0-darwin-x64', 'nodejunk', 'node-vX-linux-x64', 'node-v22.20.0-linux-x64.parcial']);
     const r = bash(`borrar_nodos_viejos "${path.join(dir, 'raiz')}" .runtime/node-v24.22.0-linux-x64 linux x64`, { real: true });
     expect(r).toMatchObject({ codigo: 0, error: '' });
     for (const n of ['node-v22.20.0-linux-x64', 'node-v24.9.0-linux-x64']) expect(queda(n), n).toBe(false);
-    for (const n of ['node-v24.22.0-linux-x64', 'node-v22.20.0-linux-arm64', 'node-v22.20.0-darwin-x64', 'nodejunk', 'node-vX-linux-x64', 'lanzador.lock']) expect(queda(n), n).toBe(true);
+    // una instalación a medias (.parcial) no es una versión: la borra borrar_parciales, no esta
+    for (const n of ['node-v24.22.0-linux-x64', 'node-v22.20.0-linux-arm64', 'node-v22.20.0-darwin-x64', 'nodejunk', 'node-vX-linux-x64', 'node-v22.20.0-linux-x64.parcial', 'lanzador.lock']) expect(queda(n), n).toBe(true);
   });
   it('sin ningún otro portátil (ni .runtime), no borra nada y sale con 0', () => {
     preparar(['node-v24.22.0-linux-x64']);
@@ -508,14 +509,14 @@ describe('borrar_nodos_viejos (al subir NODO_VERSION, el portátil anterior no s
     const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
     const i = t.indexOf('borrar_nodos_viejos "$RAIZ" "$DIR" "$SO" "$ARQ"');
     expect(i).toBeGreaterThan(0);
-    for (const antes of ['curl -fL', 'sha256_comprobar', 'tar -xzf', 'usar_nodo_portatil "$DIR"']) expect(i, antes).toBeGreaterThan(t.indexOf(antes));
+    for (const antes of ['curl -fL', 'sha256_comprobar', 'instalar_extraido .runtime/node.tar.gz', 'usar_nodo_portatil "$DIR"']) expect(i, antes).toBeGreaterThan(t.indexOf(antes));
     expect(i).toBeLessThan(t.indexOf('\nfi\n', t.indexOf('# 1. Node')));
     expect(t.slice(t.lastIndexOf('\n', i), i)).toMatch(/\[ -x "\$DIR\/bin\/node" \] && $/);   // solo si el nuevo está
   });
-  it('./shelter para si falla la extracción del nuevo, y borra lo que quede a medias para no usarlo después', () => {
+  it('./shelter para si falla la extracción del nuevo, y borra la descarga (lo extraído a medias lo borra instalar_extraido)', () => {
     const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
-    const linea = t.split('\n').find(l => l.includes('tar -xzf .runtime/node.tar.gz')) ?? '';
-    expect(linea).toMatch(/tar -xzf \.runtime\/node\.tar\.gz -C \.runtime \|\| \{ rm -rf "\$DIR" \.runtime\/node\.tar\.gz; rojo "[^"]+"; exit 1; \}$/);
+    const linea = t.split('\n').find(l => l.includes('instalar_extraido .runtime/node.tar.gz')) ?? '';
+    expect(linea).toMatch(/^ {2}instalar_extraido \.runtime\/node\.tar\.gz "\$DIR" bin\/node "\$\{DIR#\.runtime\/\}" \|\| \{ rm -f \.runtime\/node\.tar\.gz; rojo "[^"]+"; exit 1; \}$/);
   });
 });
 
@@ -598,11 +599,11 @@ describe('borrar_pnpm_viejos (al subir la versión de pnpm, el anterior no se qu
   };
   const queda = (n: string) => existsSync(path.join(runtime(), n));
   it('borra el anterior del mismo sistema y arquitectura; deja el nuevo, los de otra arquitectura, los Node y lo demás', () => {
-    preparar(['pnpm-11.25.0-linux-x64', 'pnpm-12.9.1-linux-x64', 'pnpm-12.14.0-linux-x64', 'pnpm-11.25.0-linux-arm64', 'pnpm-11.25.0-darwin-x64', 'pnpm-1.0.0-musl-linux-x64', 'pnpmjunk', 'pnpm-X-linux-x64', 'node-v22.20.0-linux-x64']);
+    preparar(['pnpm-11.25.0-linux-x64', 'pnpm-12.9.1-linux-x64', 'pnpm-12.14.0-linux-x64', 'pnpm-11.25.0-linux-arm64', 'pnpm-11.25.0-darwin-x64', 'pnpm-1.0.0-musl-linux-x64', 'pnpmjunk', 'pnpm-X-linux-x64', 'node-v22.20.0-linux-x64', 'pnpm-11.25.0-linux-x64.parcial']);
     const r = bash(`borrar_pnpm_viejos "${path.join(dir, 'raiz')}" .runtime/pnpm-12.14.0-linux-x64 linux x64`, { real: true });
     expect(r).toMatchObject({ codigo: 0, error: '' });
     for (const n of ['pnpm-11.25.0-linux-x64', 'pnpm-12.9.1-linux-x64']) expect(queda(n), n).toBe(false);
-    for (const n of ['pnpm-12.14.0-linux-x64', 'pnpm-11.25.0-linux-arm64', 'pnpm-11.25.0-darwin-x64', 'pnpm-1.0.0-musl-linux-x64', 'pnpmjunk', 'pnpm-X-linux-x64', 'node-v22.20.0-linux-x64', 'lanzador.lock']) expect(queda(n), n).toBe(true);
+    for (const n of ['pnpm-12.14.0-linux-x64', 'pnpm-11.25.0-linux-arm64', 'pnpm-11.25.0-darwin-x64', 'pnpm-1.0.0-musl-linux-x64', 'pnpmjunk', 'pnpm-X-linux-x64', 'node-v22.20.0-linux-x64', 'pnpm-11.25.0-linux-x64.parcial', 'lanzador.lock']) expect(queda(n), n).toBe(true);
   });
   it('sin ningún otro pnpm (ni .runtime), no borra nada y sale con 0', () => {
     preparar(['pnpm-12.14.0-linux-x64']);
@@ -616,6 +617,141 @@ describe('borrar_pnpm_viejos (al subir la versión de pnpm, el anterior no se qu
       expect(bash(`borrar_pnpm_viejos "${path.join(dir, 'raiz')}" ${args}`, { real: true }).codigo, args).toBe(1);
     }
     expect(queda('pnpm-11.25.0-linux-x64')).toBe(true);
+  });
+});
+
+describe('instalar_extraido y borrar_parciales (Node y pnpm se colocan de golpe: nunca un ejecutable a medias en su sitio)', () => {
+  const raiz = () => path.join(dir, 'raiz');
+  const runtime = () => path.join(raiz(), '.runtime');
+  const NODO = 'node-v9.9.9-linux-x64';
+  // un paquete .tar.gz de prueba hecho con tar de verdad: <carpeta>/<ejecutable>, más otro archivo, con relleno aleatorio
+  // (no se comprime, así que un paquete cortado se corta a mitad del ejecutable)
+  const paquete = (nombre: string, carpeta: string, ejecutable: string) => {
+    const fuente = path.join(dir, `fuente-${nombre}`); const f = path.join(fuente, carpeta, ejecutable);
+    mkdirSync(path.dirname(f), { recursive: true });
+    writeFileSync(f, `#!/bin/bash\necho ${nombre}\n# ${randomBytes(300_000).toString('base64')}\n`); chmodSync(f, 0o755);
+    writeFileSync(path.join(fuente, carpeta, 'otro.txt'), 'otro\n');
+    const tgz = path.join(dir, nombre);
+    expect(spawnSync('tar', ['-czf', tgz, '-C', fuente, carpeta.split('/')[0]]).status).toBe(0);
+    return tgz;
+  };
+  const nodo = () => paquete('node.tar.gz', NODO, 'bin/node');
+  const pnpm = () => paquete('pnpm.tgz', 'package', 'pnpm');
+  // como lo llama ./shelter: desde la raíz, con la carpeta final relativa
+  const instalar = (args: string, env: Record<string, string> = {}) => {
+    mkdirSync(runtime(), { recursive: true });
+    return bash(`cd "${raiz()}" && instalar_extraido ${args}`, { real: true, env });
+  };
+  const contenido = () => readdirSync(runtime()).sort();
+  const ejecutable = (f: string) => existsSync(f) && statSync(f).isFile() && (statSync(f).mode & 0o111) !== 0;
+
+  it('Node: deja la carpeta final con su bin/node ejecutable, completo, y ninguna carpeta temporal', () => {
+    const tgz = nodo();
+    expect(instalar(`"${tgz}" .runtime/${NODO} bin/node ${NODO}`)).toMatchObject({ codigo: 0, error: '' });
+    const bin = path.join(runtime(), NODO, 'bin', 'node');
+    expect(ejecutable(bin)).toBe(true);
+    expect(readFileSync(bin, 'utf8')).toBe(readFileSync(path.join(dir, 'fuente-node.tar.gz', NODO, 'bin', 'node'), 'utf8'));
+    expect(existsSync(path.join(runtime(), NODO, 'otro.txt'))).toBe(true);
+    expect(contenido()).toEqual([NODO]);
+  });
+  it('pnpm: solo el ejecutable del paquete, en la carpeta final, y ninguna carpeta temporal', () => {
+    const tgz = pnpm();
+    expect(instalar(`"${tgz}" .runtime/pnpm-1.2.3-linux-x64 pnpm . --strip-components=1 package/pnpm`)).toMatchObject({ codigo: 0, error: '' });
+    expect(ejecutable(path.join(runtime(), 'pnpm-1.2.3-linux-x64', 'pnpm'))).toBe(true);
+    expect(readdirSync(path.join(runtime(), 'pnpm-1.2.3-linux-x64'))).toEqual(['pnpm']);
+    expect(contenido()).toEqual(['pnpm-1.2.3-linux-x64']);
+  });
+  it('un paquete cortado: sale con error, no aparece la carpeta final y no queda nada a medias', () => {
+    for (const [tgz, args] of [[nodo(), `.runtime/${NODO} bin/node ${NODO}`], [pnpm(), '.runtime/pnpm-1.2.3-linux-x64 pnpm . --strip-components=1 package/pnpm']]) {
+      truncateSync(tgz, Math.floor(statSync(tgz).size * 0.6));
+      const r = instalar(`"${tgz}" ${args}`);
+      expect(r.codigo, args).not.toBe(0);
+      expect(contenido(), args).toEqual([]);
+    }
+  });
+  it('un paquete sin el ejecutable esperado: sale con error y no deja nada', () => {
+    const tgz = pnpm();
+    expect(instalar(`"${tgz}" .runtime/${NODO} bin/node ${NODO}`).codigo).not.toBe(0);
+    expect(instalar(`"${tgz}" .runtime/pnpm-1.2.3-linux-x64 bin/pnpm package`).codigo).not.toBe(0);
+    expect(contenido()).toEqual([]);
+  });
+  it('si el lanzador muere a mitad de la extracción, la carpeta final no existe; el siguiente arranque limpia y la instala', () => {
+    const tgz = nodo();
+    // un tar que deja el ejecutable a medias (ya ejecutable) donde le dicen y mata al bash que lo llamó, como un SIGKILL
+    // o un apagón en mitad de la extracción
+    const falsos = path.join(dir, 'falsos'); mkdirSync(falsos);
+    writeFileSync(path.join(falsos, 'tar'), `#!/bin/bash\nwhile [ $# -gt 0 ]; do [ "$1" = -C ] && d="$2"; shift; done\nmkdir -p "$d/${NODO}/bin"\nprintf '#!/bin/bash\\necho a med' > "$d/${NODO}/bin/node"; chmod 755 "$d/${NODO}/bin/node"\nkill -KILL $PPID\nexit 2\n`);
+    chmodSync(path.join(falsos, 'tar'), 0o755);
+    const r = instalar(`"${tgz}" .runtime/${NODO} bin/node ${NODO}; echo "no debería seguir"`, { PATH: `${falsos}:${process.env.PATH}` });
+    expect(r.salida).toBe('');
+    expect(existsSync(path.join(runtime(), NODO))).toBe(false);   // nodo_disponible no lo dará por bueno
+    expect(contenido()).toEqual([`${NODO}.parcial`]);
+    // siguiente arranque: el paso 1 borra lo que quedó a medias y la instalación sale bien
+    expect(bash(`borrar_parciales "${raiz()}" node-v`, { real: true })).toMatchObject({ codigo: 0, error: '' });
+    expect(contenido()).toEqual([]);
+    expect(instalar(`"${tgz}" .runtime/${NODO} bin/node ${NODO}`).codigo).toBe(0);
+    expect(ejecutable(path.join(runtime(), NODO, 'bin', 'node'))).toBe(true);
+    expect(contenido()).toEqual([NODO]);
+  });
+  it('una carpeta final sin ejecutable (de una versión anterior del lanzador) se sustituye, no se mete dentro', () => {
+    mkdirSync(path.join(runtime(), NODO, 'bin'), { recursive: true });
+    writeFileSync(path.join(runtime(), NODO, 'bin', 'basura'), '');
+    mkdirSync(path.join(runtime(), `${NODO}.parcial`, 'bin'), { recursive: true });
+    const tgz = nodo();
+    expect(instalar(`"${tgz}" .runtime/${NODO} bin/node ${NODO}`).codigo).toBe(0);
+    expect(ejecutable(path.join(runtime(), NODO, 'bin', 'node'))).toBe(true);
+    expect(existsSync(path.join(runtime(), NODO, NODO))).toBe(false);
+    expect(existsSync(path.join(runtime(), NODO, 'bin', 'basura'))).toBe(false);
+    expect(contenido()).toEqual([NODO]);
+  });
+  it('sin alguno de los datos, con la carpeta final fuera de .runtime/ o con un origen que sale de lo extraído, no hace nada', () => {
+    const tgz = nodo();
+    for (const args of [
+      `"" .runtime/${NODO} bin/node ${NODO}`, `"${tgz}" "" bin/node ${NODO}`, `"${tgz}" .runtime/${NODO} "" ${NODO}`, `"${tgz}" .runtime/${NODO} bin/node ""`,
+      `"${tgz}" otra/${NODO} bin/node ${NODO}`, `"${tgz}" ${NODO} bin/node ${NODO}`, `"${tgz}" .runtime bin/node ${NODO}`, `"${tgz}" .runtime/.. bin/node ${NODO}`,
+      `"${tgz}" .runtime/${NODO}.parcial bin/node ${NODO}`, `"${tgz}" .runtime/${NODO} bin/node ..`, `"${tgz}" .runtime/${NODO} bin/node ../x`, `"${tgz}" .runtime/${NODO} bin/node /tmp`,
+    ]) expect(instalar(args).codigo, args).toBe(1);
+    expect(contenido()).toEqual([]);
+    expect(readdirSync(raiz()).sort()).toEqual(['.runtime']);
+  });
+  it('borrar_parciales: solo las carpetas <prefijo><x.y.z>-<so>-<arq>.parcial de .runtime/; nunca las finales, enlaces ni lo demás', () => {
+    const fuera = path.join(dir, 'fuera'); mkdirSync(fuera);
+    for (const n of [`${NODO}.parcial`, 'node-v24.22.0-darwin-arm64.parcial', NODO, 'pnpm-12.14.0-linux-x64.parcial', 'pnpm-12.14.0-linux-x64', 'nodejunk.parcial', 'node-vX-linux-x64.parcial', 'node-v1.0.0.parcial']) mkdirSync(path.join(runtime(), n), { recursive: true });
+    writeFileSync(path.join(runtime(), 'node-v2.0.0-linux-x64.parcial'), '');
+    symlinkSync(fuera, path.join(runtime(), 'node-v3.0.0-linux-x64.parcial'));
+    mkdirSync(path.join(raiz(), 'node-v1.0.0-linux-x64.parcial'));
+    expect(bash(`borrar_parciales "${raiz()}" node-v`, { real: true })).toMatchObject({ codigo: 0, error: '' });
+    expect(contenido()).toEqual([NODO, 'node-v1.0.0.parcial', 'node-v2.0.0-linux-x64.parcial', 'node-v3.0.0-linux-x64.parcial', 'node-vX-linux-x64.parcial', 'nodejunk.parcial', 'pnpm-12.14.0-linux-x64', 'pnpm-12.14.0-linux-x64.parcial'].sort());
+    expect(existsSync(fuera)).toBe(true); expect(existsSync(path.join(raiz(), 'node-v1.0.0-linux-x64.parcial'))).toBe(true);
+    expect(bash(`borrar_parciales "${raiz()}" pnpm-`, { real: true })).toMatchObject({ codigo: 0, error: '' });
+    expect(contenido()).not.toContain('pnpm-12.14.0-linux-x64.parcial'); expect(contenido()).toContain('pnpm-12.14.0-linux-x64');
+    // sin raíz o con otro prefijo (también vacío, que lo cogería todo), nada
+    for (const args of ['"" node-v', `"${raiz()}" ""`, `"${raiz()}" node`, `"${raiz()}" "*"`]) expect(bash(`borrar_parciales ${args}`, { real: true }).codigo, args).toBe(1);
+    expect(contenido()).toContain('node-vX-linux-x64.parcial');
+    expect(bash(`borrar_parciales "${path.join(dir, 'nada')}" node-v`, { real: true })).toMatchObject({ codigo: 0, error: '' });
+  });
+  it('instalar_extraido extrae siempre en la carpeta temporal y solo renombra a la final tras ver el ejecutable', () => {
+    const p = readFileSync(PLATAFORMA, 'utf8');
+    const cuerpo = p.slice(p.indexOf('instalar_extraido() {'), p.indexOf('\n}\n', p.indexOf('instalar_extraido() {')));
+    expect(cuerpo).toContain('tar -xzf "$paquete" -C "$parcial"');
+    expect(cuerpo.split('tar ')).toHaveLength(2);
+    const mv = cuerpo.indexOf('mv "$desde" "$final"');
+    expect(mv).toBeGreaterThan(cuerpo.indexOf('[ -x "$desde/$ejecutable" ]'));
+    expect(cuerpo.split(/\bmv /)).toHaveLength(2);
+  });
+  it('./shelter: nada se extrae directamente; Node y pnpm pasan por instalar_extraido y cada paso limpia antes lo que quedó a medias', () => {
+    const t = readFileSync(path.join(RAIZ, 'shelter'), 'utf8');
+    expect(t).not.toMatch(/(^|[\s;&|(])tar\s/m);
+    expect(t).not.toMatch(/mkdir -p "\$PDIR"/);
+    expect(t.split('instalar_extraido ')).toHaveLength(3);
+    const toma = t.indexOf('tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"');
+    const nodo = t.indexOf('borrar_parciales "$RAIZ" node-v || true');
+    expect(nodo).toBeGreaterThan(toma);
+    expect(nodo).toBeGreaterThan(t.indexOf('# 1. Node'));
+    expect(nodo).toBeLessThan(t.indexOf('if ! nodo_disponible; then'));
+    const pn = t.indexOf('borrar_parciales "$RAIZ" pnpm- || true');
+    expect(pn).toBeGreaterThan(t.indexOf('PDIR="$(carpeta_pnpm'));
+    expect(pn).toBeLessThan(t.indexOf('if [ ! -x "$PNPM" ]; then'));
   });
 });
 
@@ -649,18 +785,18 @@ describe('./shelter instala las dependencias con su propio pnpm, comprobado', ()
     expect(l).toContain('huella_de pnpm-lock.yaml'); expect(l).toContain('huella_de pnpm-workspace.yaml');
   });
   it('lee la integridad del lockfile, descarga, comprueba, descomprime y solo entonces lo usa', () => {
-    const orden = ['version_pnpm "$NODE" package.json', 'integridad_pnpm pnpm-lock.yaml', 'curl -fL --progress-bar "$(url_pnpm', 'sha512_comprobar "$NODE" .runtime/pnpm.tgz', 'tar -xzf .runtime/pnpm.tgz', 'borrar_pnpm_viejos "$RAIZ" "$PDIR" "$SO" "$ARQ"', '"$PNPM" install'];
+    const orden = ['version_pnpm "$NODE" package.json', 'integridad_pnpm pnpm-lock.yaml', 'curl -fL --progress-bar "$(url_pnpm', 'sha512_comprobar "$NODE" .runtime/pnpm.tgz', 'instalar_extraido .runtime/pnpm.tgz', 'borrar_pnpm_viejos "$RAIZ" "$PDIR" "$SO" "$ARQ"', '"$PNPM" install'];
     const pos = orden.map(p => t.indexOf(p));
     for (const [k, p] of orden.entries()) expect(pos[k], p).toBeGreaterThan(0);
     for (let k = 1; k < pos.length; k++) expect(pos[k], orden[k]).toBeGreaterThan(pos[k - 1]);
-    expect(t.split('tar -xzf .runtime/pnpm.tgz')).toHaveLength(2);
+    expect(t.split('instalar_extraido .runtime/pnpm.tgz')).toHaveLength(2);
   });
   it('si algo falla al conseguir pnpm, borra lo descargado o extraído a medias y sale con 1', () => {
     const de = (p: string) => lineas.find(l => l.includes(p)) ?? '';
     expect(de('integridad_pnpm pnpm-lock.yaml')).toMatch(/\|\| \{ rojo "[^"]+"; exit 1; \}$/);
     expect(de('curl -fL --progress-bar "$(url_pnpm')).toMatch(/\|\| \{ rm -f \.runtime\/pnpm\.tgz; rojo "[^"]+"; exit 1; \}$/);
     expect(de('sha512_comprobar "$NODE" .runtime/pnpm.tgz')).toMatch(/\|\| \{ rm -f \.runtime\/pnpm\.tgz; rojo "[^"]+"; exit 1; \}$/);
-    expect(de('tar -xzf .runtime/pnpm.tgz')).toMatch(/tar -xzf \.runtime\/pnpm\.tgz -C "\$PDIR" --strip-components=1 package\/pnpm && \[ -x "\$PNPM" \] \|\| \{ rm -rf "\$PDIR" \.runtime\/pnpm\.tgz; rojo "[^"]+"; exit 1; \}$/);
+    expect(de('instalar_extraido .runtime/pnpm.tgz')).toMatch(/^ {4}instalar_extraido \.runtime\/pnpm\.tgz "\$PDIR" pnpm \. --strip-components=1 package\/pnpm \|\| \{ rm -f \.runtime\/pnpm\.tgz; rojo "[^"]+"; exit 1; \}$/);
   });
   it('mantiene la descarga aparte del binario de Electron', () => {
     expect(t).toContain('"$NODE" node_modules/electron/install.js');

@@ -67,6 +67,8 @@ trap 'soltar_cerrojo' EXIT
 if ! tomar_cerrojo "$RAIZ/.runtime/lanzador.lock"; then ya_abierto_sin_cerrojo "$RAIZ" "$PUERTO" "$DATOS" && exit 0; exit 1; fi
 
 # 1. Node NODO_MINIMO o superior (si no hay, se descarga uno portátil en .runtime/, sin permisos de administrador)
+# antes, fuera lo que dejó a medias una descarga interrumpida (scripts/plataforma.sh, borrar_parciales)
+borrar_parciales "$RAIZ" node-v || true
 if ! nodo_disponible; then
   SO="$(so_node)"; ARQ="$(arq_node "$NODO_VERSION")"; SUMA="$(suma_node "$NODO_VERSION" "$SO" "$ARQ")"
   DIR="$(carpeta_nodo "$SO" "$ARQ")"
@@ -75,9 +77,10 @@ if ! nodo_disponible; then
   curl -fL --progress-bar "https://nodejs.org/dist/v$NODO_VERSION/${DIR#.runtime/}.tar.gz" -o .runtime/node.tar.gz || { rojo "No he podido descargar Node. Comprueba la conexión o instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
   # suma SHA-256 oficial (https://nodejs.org/dist/v$NODO_VERSION/SHASUMS256.txt, en suma_node): no se ejecuta nada que no cuadre
   echo "$SUMA  .runtime/node.tar.gz" | sha256_comprobar >/dev/null || { rm -f .runtime/node.tar.gz; rojo "El Node descargado no cuadra con su suma oficial: no lo uso. Instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
-  # si la extracción falla (disco lleno, descarga cortada) no se sigue: lo que quede a medias podría tener ya bin/node
-  # y el siguiente arranque lo daría por bueno
-  tar -xzf .runtime/node.tar.gz -C .runtime || { rm -rf "$DIR" .runtime/node.tar.gz; rojo "No he podido descomprimir el Node descargado (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter o instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
+  # se extrae aparte y la carpeta final solo aparece entera (scripts/plataforma.sh, instalar_extraido): ni un fallo
+  # (disco lleno, descarga cortada) ni una muerte a mitad dejan en ella un bin/node que el siguiente arranque daría por
+  # bueno. Si falla, no se sigue
+  instalar_extraido .runtime/node.tar.gz "$DIR" bin/node "${DIR#.runtime/}" || { rm -f .runtime/node.tar.gz; rojo "No he podido descomprimir el Node descargado (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter o instala Node $NODO_MINIMO desde https://nodejs.org"; exit 1; }
   rm .runtime/node.tar.gz
   usar_nodo_portatil "$DIR"
   # con el nuevo ya en su sitio, fuera los portátiles anteriores: una actualización deja el viejo y Electron añade al
@@ -105,15 +108,16 @@ if [ ! -f "$SELLO" ] || [ "$(cat "$SELLO")" != "$HUELLA" ]; then
   PNPM_VERSION="$(version_pnpm "$NODE" package.json)" || { rojo "package.json no dice qué pnpm usar (packageManager «pnpm@x.y.z»)."; exit 1; }
   SO="$(so_node)"; ARQ="$(arq_node "$NODO_VERSION")"
   PDIR="$(carpeta_pnpm "$PNPM_VERSION" "$SO" "$ARQ")"; PNPM="$RAIZ/$PDIR/pnpm"
+  borrar_parciales "$RAIZ" pnpm- || true   # lo que dejó a medias una instalación interrumpida
   if [ ! -x "$PNPM" ]; then
     INTEGRIDAD="$(integridad_pnpm pnpm-lock.yaml "$PNPM_VERSION" "$SO" "$ARQ")" || { rojo "No sé qué pnpm esperar para este sistema: no descargo nada."; exit 1; }
     amarillo "Descargando pnpm $PNPM_VERSION para instalar las dependencias (solo esta vez)…"
     mkdir -p .runtime
     curl -fL --progress-bar "$(url_pnpm "$PNPM_VERSION" "$SO" "$ARQ")" -o .runtime/pnpm.tgz || { rm -f .runtime/pnpm.tgz; rojo "No he podido descargar pnpm. Comprueba la conexión y vuelve a ejecutar ./shelter"; exit 1; }
     sha512_comprobar "$NODE" .runtime/pnpm.tgz "$INTEGRIDAD" || { rm -f .runtime/pnpm.tgz; rojo "El pnpm descargado no cuadra con su huella de pnpm-lock.yaml: no lo uso."; exit 1; }
-    # del paquete solo hace falta el ejecutable; si la extracción falla o no queda ejecutable, fuera lo extraído a
-    # medias
-    mkdir -p "$PDIR" && tar -xzf .runtime/pnpm.tgz -C "$PDIR" --strip-components=1 package/pnpm && [ -x "$PNPM" ] || { rm -rf "$PDIR" .runtime/pnpm.tgz; rojo "No he podido descomprimir pnpm (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter"; exit 1; }
+    # del paquete solo hace falta el ejecutable, extraído aparte: la carpeta final solo aparece con él entero y
+    # ejecutable (scripts/plataforma.sh, instalar_extraido). Si falla, no queda nada a medias
+    instalar_extraido .runtime/pnpm.tgz "$PDIR" pnpm . --strip-components=1 package/pnpm || { rm -f .runtime/pnpm.tgz; rojo "No he podido descomprimir pnpm (¿falta espacio en el disco?). Vuelve a ejecutar ./shelter"; exit 1; }
     rm .runtime/pnpm.tgz
     # con el nuevo ya en su sitio, fuera los anteriores de este sistema
     borrar_pnpm_viejos "$RAIZ" "$PDIR" "$SO" "$ARQ" || true
