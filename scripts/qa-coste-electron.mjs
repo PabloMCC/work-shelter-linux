@@ -8,10 +8,9 @@
 // En un portátil con dos GPU, la que se use depende del sistema: la línea "gpu" del resultado dice cuál ha sido.
 import { _electron } from 'playwright';
 import electron from 'electron';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { servidor } from './qa-medicion.mjs';
 
 const opciones = process.argv.slice(2);
 const [w, h] = (opciones.find(o => /^\d+x\d+$/.test(o)) || '1440x900').split('x').map(Number);
@@ -20,19 +19,6 @@ const angle = opciones.find(o => o.startsWith('--angle='))?.slice(8);
 const chromium = angle ? [`--use-angle=${angle}`, ...(angle === 'vulkan' ? ['--enable-features=Vulkan'] : [])] : [];
 const veces = +(opciones.find(o => o.startsWith('--veces='))?.slice(8) || 1);
 const esperaMs = +(opciones.find(o => o.startsWith('--espera='))?.slice(9) || 0);   // tras __ready, antes de medir
-const PUERTO = process.env.SHELTER_PUERTO || '3791';
-const espera = ms => new Promise(r => setTimeout(r, ms));
-
-async function servidor() {
-  const datos = mkdtempSync(join(tmpdir(), 'shelter-medicion-'));
-  const p = spawn(process.execPath, ['server/supervisor.mjs'], { stdio: 'ignore', env: { ...process.env, SHELTER_DATOS: datos, SHELTER_PUERTO: PUERTO, SHELTER_SIN_EJEMPLOS: '1' } });
-  for (let i = 0; i < 80; i++) {
-    try { if ((await fetch(`http://127.0.0.1:${PUERTO}/salud`)).ok) { const token = readFileSync(join(datos, 'token'), 'utf8').trim(); return { p, datos, url: `http://127.0.0.1:${PUERTO}/#t=${token}` }; } } catch {}
-    await espera(250);
-  }
-  p.kill('SIGINT'); rmSync(datos, { recursive: true, force: true });
-  throw new Error(`El servidor no ha arrancado en el puerto ${PUERTO}.`);
-}
 
 async function medir() {
   const s = await servidor();
