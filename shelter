@@ -150,7 +150,9 @@ if [ -n "${SHELTER_DESDE_APP:-}" ]; then
   trap - EXIT INT TERM   # el servidor ya no está: que la trampa no cambie el código de salida
   exit $CODIGO
 fi
-verde "work-shelter en marcha: http://127.0.0.1:$PUERTO  (Ctrl+C aquí lo cierra todo)"
+# Ctrl+C solo lo cierra todo si este arranque es el dueño del servidor; si no, esta ventana solo trae la que ya había
+if [ -n "$SERVIDOR_PID" ]; then verde "work-shelter en marcha: http://127.0.0.1:$PUERTO  (Ctrl+C aquí lo cierra todo)"
+else verde "work-shelter en marcha: http://127.0.0.1:$PUERTO"; fi
 if [ -n "${SHELTER_SIN_VENTANA:-}" ]; then
   # pruebas y uso sin ventana: el servidor queda en marcha hasta Ctrl+C
   echo "Abre: $URL"
